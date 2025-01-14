@@ -1,11 +1,16 @@
-local snippets = require("tidal_snipgen.snippets")
+local file_utils = require("tidal_snipgen.file_utils")
+local snippet_generator = require("tidal_snipgen.snippet_generator")
 
--- Path to your .yaml file
+-- Paths
 local yaml_file_path = vim.fn.expand("~/Samples/dirt_samps.yaml")
--- Path to your tidal.lua file
 local snippets_file_path = vim.fn.expand("~/.config/nvim/snippets/tidal.code-snippets")
 
-snippets.check_and_generate_snippets(yaml_file_path, snippets_file_path)
+-- Generate snippets if the YAML file has been updated
+local last_modified = file_utils.file_modified_time(yaml_file_path)
+if last_modified and last_modified ~= vim.g.snippet_yaml_last_modified then
+	vim.g.snippet_yaml_last_modified = last_modified
+	snippet_generator.generate_snippets(yaml_file_path, snippets_file_path)
+end
 
 -- Load the snippets
 require("luasnip.loaders.from_vscode").load_standalone({ path = snippets_file_path })
