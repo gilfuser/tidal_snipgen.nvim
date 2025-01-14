@@ -1,5 +1,7 @@
 local parser = require("tidal_snipgen.parser")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
+local format_json = require("tidal_snipgen.format_json")
+local utils = require("tidal_snipgen.file_utils")
 
 local M = {}
 
@@ -45,16 +47,18 @@ function M.generate_snippets(yaml_file_path, snippets_file_path)
 	end
 	file:write(vim.fn.json_encode(snippets))
 	file:close()
+	format_json.format_json_file(snippets_file_path)
+end
 
-	-- Set buffer filetype to JSON and format the file
-	vim.cmd("e " .. snippets_file_path)
-	vim.cmd("set filetype=json")
-	if vim.fn.exists(":JsonFormatFile") == 2 then
-		vim.cmd("JsonFormatFile")
+function M.check_and_generate_snippets(yaml_file_path, snippets_file_path)
+	local last_modified_yaml = utils.file_modified_time(yaml_file_path)
+	local last_modified_snippets = utils.file_modified_time(snippets_file_path)
+
+	if last_modified_yaml > last_modified_snippets then
+		M.generate_snippets(yaml_file_path, snippets_file_path)
 	else
-		print("JsonFormatFile command not found. Ensure json-nvim plugin is installed and loaded.")
+		print("No changes detected in the YAML file.")
 	end
-	vim.cmd("w")
 end
 
 return M
