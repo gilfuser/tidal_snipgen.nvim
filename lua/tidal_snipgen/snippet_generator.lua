@@ -55,14 +55,9 @@ function M.generate_snippets(yaml_file_path, snippets_file_path)
 			end
 
 			local snippet = {
-				prefix = { combined_trigger },
-				body = { string.format("%s[%d]", sample_name, num_variations) },
-				description = string.format(
-					"Sound bank: %s, Sample: %s, Variations: %d",
-					sound_bank,
-					sample_name,
-					num_variations
-				),
+				prefix = combined_trigger,
+				body = string.format("%s[%d]", sample_name, num_variations),
+				description = string.format("%s, %s, %d", sound_bank, sample_name, num_variations),
 				scope = "haskell,tidal",
 			}
 			snippets[string.format("%s/%s", sound_bank, sample_name)] = snippet
