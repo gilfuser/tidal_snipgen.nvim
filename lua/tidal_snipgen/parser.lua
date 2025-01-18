@@ -3,8 +3,8 @@
 -- Ensure LuaRocks paths are included
 local function add_luarocks_path()
 	local package_path_str =
-		"/home/skmecs/.luarocks/share/lua/5.4/?.lua;/home/skmecs/.luarocks/share/lua/5.4/?/init.lua;"
-	local install_cpath_pattern = "/home/skmecs/.luarocks/lib/lua/5.4/?.so;"
+		vim.fn.expand("~/.luarocks/share/lua/5.4/?.lua;/home/skmecs/.luarocks/share/lua/5.4/?/init.lua;")
+	local install_cpath_pattern = vim.fn.expand("~/.luarocks/lib/lua/5.4/?.so;")
 
 	if not string.find(package.path, package_path_str, 1, true) then
 		package.path = package.path .. ";" .. package_path_str
