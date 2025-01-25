@@ -32,7 +32,7 @@ function M.parse_yaml(file_path)
 
 	local data, err = yaml.eval(content)
 	if err then
-		return nil, err
+		return nil, "YAML Parsing Error: " .. err
 	end
 
 	return data

@@ -7,30 +7,35 @@ local fzf_actions = require("fzf-lua.actions")
 local M = {}
 
 local function display_samples(data, sound_bank)
-	local samples = data[sound_bank]
-	if not samples then
+	local bank_data = data[sound_bank]
+	if not bank_data then
 		vim.notify("No samples found for sound bank: " .. sound_bank, vim.log.levels.ERROR)
 		return
 	end
 
 	local sample_list = {}
+	local is_drummachine = bank_data.drummachine
 
-	for sample_name, attributes in pairs(samples) do
-		local info = sample_name .. ": "
-		if attributes.is_long then
-			info = info .. "long "
+	for sample_name, attributes in pairs(bank_data) do
+		if type(attributes) == "table" then
+			local info = sample_name .. ": "
+			if not is_drummachine then
+				if attributes.is_long then
+					info = info .. "long "
+				end
+				if attributes.is_longer then
+					info = info .. "longer "
+				end
+				if attributes.is_short then
+					info = info .. "short "
+				end
+				if attributes.is_shorter then
+					info = info .. "shorter "
+				end
+			end
+			info = info .. tostring(attributes.variations or 0)
+			table.insert(sample_list, info)
 		end
-		if attributes.is_longer then
-			info = info .. "longer "
-		end
-		if attributes.is_short then
-			info = info .. "short "
-		end
-		if attributes.is_shorter then
-			info = info .. "shorter "
-		end
-		info = info .. tostring(attributes.variations or 0)
-		table.insert(sample_list, info)
 	end
 
 	table.sort(sample_list)
@@ -71,18 +76,19 @@ function M.display_sound_banks(yaml_file_path, existing_data)
 		data = existing_data
 	end
 
-	-- Debug: Print the parsed data
-	-- vim.notify("Parsed data: " .. vim.inspect(data), vim.log.levels.INFO)
-
 	local sound_banks = {}
-	local existing_triggers = {}
+	local existing_prefixes = {}
 
-	for sound_bank, samples in pairs(data) do
-		local base_trigger = trigger_utils.shorten_key(sound_bank)
-		local combined_trigger = trigger_utils.generate_unique_trigger(existing_triggers, base_trigger)
-		existing_triggers[combined_trigger] = true
+	for sound_bank, attributes in pairs(data) do
+		local prefix = trigger_utils.generate_unique_prefix(existing_prefixes, sound_bank)
+		existing_prefixes[prefix] = true
 
-		table.insert(sound_banks, string.format("%s -> %s", combined_trigger, sound_bank))
+		local display_name = prefix .. " -> " .. sound_bank
+		if attributes.drummachine then
+			display_name = display_name .. " _ dm"
+		end
+
+		table.insert(sound_banks, display_name)
 	end
 
 	if #sound_banks == 0 then
@@ -92,14 +98,11 @@ function M.display_sound_banks(yaml_file_path, existing_data)
 
 	table.sort(sound_banks)
 
-	-- Debug: Print the sound banks list
-	-- vim.notify("Sound banks: " .. vim.inspect(sound_banks), vim.log.levels.INFO)
-
 	fzf_lua.fzf_exec(sound_banks, {
 		prompt = "Sound Banks> ",
 		actions = {
 			["default"] = function(selected)
-				local sound_bank = string.match(selected[1], "-> (%w+)$")
+				local sound_bank = selected[1]:match("-> (%S+)")
 				if sound_bank then
 					display_samples(data, sound_bank)
 				else
@@ -107,7 +110,7 @@ function M.display_sound_banks(yaml_file_path, existing_data)
 				end
 			end,
 			["ctrl-l"] = function(selected)
-				local sound_bank = string.match(selected[1], "-> (%w+)$")
+				local sound_bank = selected[1]:match("-> (%S+)")
 				if sound_bank then
 					display_samples(data, sound_bank)
 				else
