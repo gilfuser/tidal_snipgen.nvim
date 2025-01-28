@@ -1,4 +1,3 @@
--- ~/.config/nvim/lua/plugins/tidal_snipgen.nvim/lua/tidal_snipgen/show_sound_banks.lua
 local parser = require("tidal_snipgen.parser")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
 local fzf_lua = require("fzf-lua")
@@ -81,7 +80,7 @@ function M.display_sound_banks(yaml_file_path, existing_data)
 
 	for sound_bank, attributes in pairs(data) do
 		local prefix = trigger_utils.generate_unique_prefix(existing_prefixes, sound_bank)
-		existing_prefixes[prefix] = true
+		existing_prefixes[prefix] = sound_bank
 
 		local display_name = prefix .. " -> " .. sound_bank
 		if attributes.drummachine then

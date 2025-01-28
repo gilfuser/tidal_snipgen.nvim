@@ -8,7 +8,7 @@ local function classify_sound_banks(data)
 	local sound_bank_groups = {}
 
 	-- First pass: Group sound banks by their first three characters
-	for sound_bank, _ in pairs(data) do
+	for sound_bank, attributes in pairs(data) do
 		local prefix = trigger_utils.shorten_key(sound_bank)
 		if not sound_bank_groups[prefix] then
 			sound_bank_groups[prefix] = {}
@@ -41,9 +41,13 @@ local function classify_sample_names(data, existing_prefixes)
 	-- First pass: Group sample names by their sound bank prefix and suffix
 	for sound_bank, attributes in pairs(data) do
 		local prefix = existing_prefixes[sound_bank]
-		for sample_name, _ in pairs(attributes) do
-			if type(sample_name) == "string" then
+		print("Processing sound bank: " .. sound_bank .. " with prefix: " .. prefix)
+		for sample_name, sample_attributes in pairs(attributes) do
+			-- Skip non-sample attributes like `drummachine`
+			if type(sample_attributes) == "table" then
+				print("Processing sample name: " .. sample_name)
 				local suffix = sample_name:match("-(%w+)$") or sample_name:sub(1, 3)
+				print("Generated suffix: " .. suffix)
 				local group_key = prefix .. suffix
 				if not sample_name_groups[group_key] then
 					sample_name_groups[group_key] = {}
@@ -55,12 +59,14 @@ local function classify_sample_names(data, existing_prefixes)
 
 	-- Second pass: Generate unique suffixes for each group
 	for group_key, sample_names in pairs(sample_name_groups) do
+		print("Processing group key: " .. group_key)
 		if #sample_names == 1 then
 			-- Unique suffix
 			existing_suffixes[sample_names[1]] = group_key:sub(-3)
 		else
 			-- Non-unique suffix, recursively compare
 			for _, sample_name in ipairs(sample_names) do
+				print("Generating unique suffix for sample name: " .. sample_name)
 				existing_suffixes[sample_name] =
 					trigger_utils.generate_unique_suffix(existing_suffixes, sample_name, sample_names)
 			end
@@ -82,7 +88,9 @@ local function generate_snippets(data)
 
 	local existing_triggers = {}
 	local existing_prefixes = classify_sound_banks(data)
+	print("Existing Prefixes: ", vim.inspect(existing_prefixes))
 	local existing_suffixes = classify_sample_names(data, existing_prefixes)
+	print("Existing Suffixes: ", vim.inspect(existing_suffixes))
 
 	-- Generate snippets
 	for sound_bank, attributes in pairs(data) do
@@ -90,6 +98,7 @@ local function generate_snippets(data)
 		local prefix = existing_prefixes[sound_bank]
 
 		for sample_name, sample_attributes in pairs(attributes) do
+			-- Skip non-sample attributes like `drummachine`
 			if type(sample_attributes) == "table" then
 				local suffix = existing_suffixes[sample_name]
 				local trigger = trigger_utils.generate_unique_trigger(existing_triggers, prefix, suffix)
@@ -109,6 +118,7 @@ local function generate_snippets(data)
 						description = description .. " longer"
 					end
 				end
+				print("Generated Snippet: ", trigger, sound_bank, sample_name, description)
 				table.insert(
 					snippets,
 					string.format(
@@ -138,6 +148,9 @@ local function main()
 	if not data then
 		error("Error parsing YAML file: " .. err)
 	end
+
+	-- Debugging print to check the parsed data structure
+	print("Parsed YAML data:\n", vim.inspect(data))
 
 	local snippets = generate_snippets(data)
 
