@@ -1,3 +1,4 @@
+--  ~/.config/nvim/lua/plugins/generate_tidal_snippets.lua
 local parser = require("tidal_snipgen.parser")
 local io = require("io")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
@@ -24,8 +25,7 @@ local function classify_sound_banks(data)
 		else
 			-- Non-unique prefix, recursively compare
 			for _, sound_bank in ipairs(sound_banks) do
-				existing_prefixes[sound_bank] =
-					trigger_utils.generate_unique_prefix(existing_prefixes, sound_bank, sound_banks)
+				existing_prefixes[sound_bank] = trigger_utils.generate_unique_prefix(existing_prefixes, sound_bank)
 			end
 		end
 	end
@@ -41,13 +41,10 @@ local function classify_sample_names(data, existing_prefixes)
 	-- First pass: Group sample names by their sound bank prefix and suffix
 	for sound_bank, attributes in pairs(data) do
 		local prefix = existing_prefixes[sound_bank]
-		print("Processing sound bank: " .. sound_bank .. " with prefix: " .. prefix)
-		for sample_name, sample_attributes in pairs(attributes) do
+		for sample_name, _ in pairs(attributes) do
 			-- Skip non-sample attributes like `drummachine`
-			if type(sample_attributes) == "table" then
-				print("Processing sample name: " .. sample_name)
+			if type(sample_name) == "string" then
 				local suffix = sample_name:match("-(%w+)$") or sample_name:sub(1, 3)
-				print("Generated suffix: " .. suffix)
 				local group_key = prefix .. suffix
 				if not sample_name_groups[group_key] then
 					sample_name_groups[group_key] = {}
@@ -59,16 +56,14 @@ local function classify_sample_names(data, existing_prefixes)
 
 	-- Second pass: Generate unique suffixes for each group
 	for group_key, sample_names in pairs(sample_name_groups) do
-		print("Processing group key: " .. group_key)
 		if #sample_names == 1 then
 			-- Unique suffix
-			existing_suffixes[sample_names[1]] = group_key:sub(-3)
+			local suffix_length = #(sample_names[1]:match("-(%w+)$") or sample_names[1]:sub(1, 3))
+			existing_suffixes[sample_names[1]] = group_key:sub(-suffix_length)
 		else
 			-- Non-unique suffix, recursively compare
 			for _, sample_name in ipairs(sample_names) do
-				print("Generating unique suffix for sample name: " .. sample_name)
-				existing_suffixes[sample_name] =
-					trigger_utils.generate_unique_suffix(existing_suffixes, sample_name, sample_names)
+				existing_suffixes[sample_name] = trigger_utils.generate_unique_suffix(existing_suffixes, sample_name)
 			end
 		end
 	end
@@ -88,9 +83,7 @@ local function generate_snippets(data)
 
 	local existing_triggers = {}
 	local existing_prefixes = classify_sound_banks(data)
-	print("Existing Prefixes: ", vim.inspect(existing_prefixes))
 	local existing_suffixes = classify_sample_names(data, existing_prefixes)
-	print("Existing Suffixes: ", vim.inspect(existing_suffixes))
 
 	-- Generate snippets
 	for sound_bank, attributes in pairs(data) do
@@ -118,7 +111,6 @@ local function generate_snippets(data)
 						description = description .. " longer"
 					end
 				end
-				print("Generated Snippet: ", trigger, sound_bank, sample_name, description)
 				table.insert(
 					snippets,
 					string.format(
@@ -148,9 +140,6 @@ local function main()
 	if not data then
 		error("Error parsing YAML file: " .. err)
 	end
-
-	-- Debugging print to check the parsed data structure
-	print("Parsed YAML data:\n", vim.inspect(data))
 
 	local snippets = generate_snippets(data)
 

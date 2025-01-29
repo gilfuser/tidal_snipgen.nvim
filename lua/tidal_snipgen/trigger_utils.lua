@@ -25,33 +25,36 @@ function M.generate_unique_prefix(existing_prefixes, sound_bank)
 
 	-- Check if the base prefix is unique
 	if not existing_prefixes[prefix] then
+		existing_prefixes[prefix] = sound_bank
 		return prefix
 	end
 
 	-- If not unique, find the next unique character recursively
-	local unique = false
 	local suffix_index = 4
-
-	while not unique do
+	while true do
 		local next_char = find_first_differing_char(sound_bank, existing_prefixes[prefix], suffix_index)
 		if next_char then
 			prefix = base_prefix .. next_char
-		else
+		elseif suffix_index <= #sound_bank then
 			-- If no differing character found, use the next character in the sound_bank
 			prefix = sound_bank:sub(1, suffix_index)
+		else
+			break
 		end
 		suffix_index = suffix_index + 1
 
 		if not existing_prefixes[prefix] then
-			unique = true
+			existing_prefixes[prefix] = sound_bank
+			return prefix
 		end
 	end
 
-	return prefix
+	-- If all else fails, return the original base_prefix
+	return base_prefix
 end
 
 -- Function to generate unique suffixes based on the ruleset
-function M.generate_unique_suffix(existing_suffixes, sample_name, sample_names)
+function M.generate_unique_suffix(existing_suffixes, sample_name)
 	local base_suffix = sample_name:match("-(%w+)$") or sample_name:sub(1, 3)
 	local suffix = base_suffix
 
@@ -62,32 +65,27 @@ function M.generate_unique_suffix(existing_suffixes, sample_name, sample_names)
 	end
 
 	-- If not unique, find the next unique character recursively
-	local unique = false
-	local suffix_index = 4
-
-	while not unique do
-		for existing, name in pairs(existing_suffixes) do
-			if name == sample_name then
-				return existing
-			end
-		end
-
-		local next_char = find_first_differing_char(sample_name, existing_suffixes[suffix], suffix_index)
+	local suffix_index = 1
+	while true do
+		local next_char = find_first_differing_char(sample_name, existing_suffixes[suffix], suffix_index + #base_suffix)
 		if next_char then
-			suffix = base_suffix .. next_char
-		else
+			suffix = base_suffix:sub(1, suffix_index) .. next_char .. base_suffix:sub(suffix_index + 1)
+		elseif suffix_index + #base_suffix <= #sample_name then
 			-- If no differing character found, use the next character in the sample_name
-			suffix = sample_name:sub(1, suffix_index)
+			suffix = sample_name:sub(1, suffix_index + #base_suffix)
+		else
+			break
 		end
 		suffix_index = suffix_index + 1
 
 		if not existing_suffixes[suffix] then
-			unique = true
+			existing_suffixes[suffix] = sample_name
+			return suffix
 		end
 	end
 
-	existing_suffixes[suffix] = sample_name
-	return suffix
+	-- If all else fails, return the original base_suffix
+	return base_suffix
 end
 
 -- Function to generate unique triggers based on the ruleset
@@ -100,7 +98,7 @@ function M.generate_unique_trigger(existing_triggers, prefix, suffix)
 		return trigger
 	end
 
-	-- If not unique, find the next unique character recursively
+	-- If all else fails, append a character to make it unique
 	local unique = false
 	local suffix_index = 1
 
