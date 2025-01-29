@@ -5,7 +5,6 @@ function M.shorten_key(key)
 	return key:sub(1, 3)
 end
 
--- Function to find the first differing character between two strings starting from a given position
 local function find_first_differing_char(str1, str2, start_pos)
 	if type(str1) ~= "string" or type(str2) ~= "string" then
 		return nil
@@ -18,7 +17,6 @@ local function find_first_differing_char(str1, str2, start_pos)
 	return nil
 end
 
--- Function to generate unique prefixes based on the ruleset
 function M.generate_unique_prefix(existing_prefixes, sound_bank)
 	local base_prefix = M.shorten_key(sound_bank)
 	local prefix = base_prefix
@@ -53,7 +51,6 @@ function M.generate_unique_prefix(existing_prefixes, sound_bank)
 	return base_prefix
 end
 
--- Function to generate unique suffixes based on the ruleset
 function M.generate_unique_suffix(existing_suffixes, sample_name)
 	local base_suffix = sample_name:match("-(%w+)$") or sample_name:sub(1, 3)
 	local suffix = base_suffix
@@ -88,7 +85,6 @@ function M.generate_unique_suffix(existing_suffixes, sample_name)
 	return base_suffix
 end
 
--- Function to generate unique triggers based on the ruleset
 function M.generate_unique_trigger(existing_triggers, prefix, suffix)
 	local trigger = prefix .. suffix
 

@@ -43,7 +43,7 @@ local function classify_sample_names(data, existing_prefixes)
 		local prefix = existing_prefixes[sound_bank]
 		for sample_name, _ in pairs(attributes) do
 			-- Skip non-sample attributes like `drummachine`
-			if type(sample_name) == "string" then
+			if type(sample_name) == "string" and sample_name ~= "drummachine" then
 				local suffix = sample_name:match("-(%w+)$") or sample_name:sub(1, 3)
 				local group_key = prefix .. suffix
 				if not sample_name_groups[group_key] then
@@ -92,10 +92,19 @@ local function generate_snippets(data)
 
 		for sample_name, sample_attributes in pairs(attributes) do
 			-- Skip non-sample attributes like `drummachine`
-			if type(sample_attributes) == "table" then
+			if type(sample_attributes) == "table" and sample_name ~= "drummachine" then
 				local suffix = existing_suffixes[sample_name]
 				local trigger = trigger_utils.generate_unique_trigger(existing_triggers, prefix, suffix)
 				existing_triggers[trigger] = true
+
+				-- Ensure variations is not nil
+				if sample_attributes.variations == nil then
+					error(
+						"Error: 'variations' attribute is nil for sample '"
+							.. sample_name
+							.. "'. Please check the .yaml file."
+					)
+				end
 
 				local description = sound_bank .. " " .. sample_attributes.variations
 				if is_drummachine then
