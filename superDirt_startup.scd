@@ -1,4 +1,5 @@
 q = q ? ();
+q.samples_path = "~/Samples/".standardizePath;
 q.f_synths = File("~/Samples/dirt_synths.yaml".standardizePath, "w");
 q.f_fx = File("~/Samples/dirt_fx.yaml".standardizePath, "w");
 q.f_samps = File("~/Samples/dirt_samps.yaml".standardizePath, "w");
@@ -24,177 +25,160 @@ fork{
   // "~/SuperCollider/instruments/01b_my_tidal_instruments.scd".standardizePath.load;
   0.2.wait;
 
-// (
-//   Task {
-//   ( q.numOrbs ).do { |i|
-//     var j = i + 1;
-//     var orbit = format("orb%",j).asSymbol;
-//     q[ orbit ] = ~dirt.orbits[i];
-//     wait(0.05);
-//     Ndef( orbit ).ar(2);
-//     wait(0.05);
-//     Ndef( orbit ).proxyspace.quant_(1).clock_(t);
-//     wait(0.05);
-//     q[ orbit ].outBus = Ndef( orbit ).bus;
-//     wait(0.05);
-//     Ndef( orbit ).play( q.orbits_out_chans[i] /* + 2 */ );
-//     wait(0.05);
-//     Ndef( orbit ).vol_(0.5);
-//     wait(0.05);
-//   };
-//   Ndef( \allOrbs, {
-//     Limiter.ar(
-//     ( Ndef(\orb1).ar * \amp1.kr(1, spec:\ampx4.asSpec) ) +
-//       ( Ndef(\orb2).ar * \amp2.kr(1, spec:\ampx4.asSpec) ) +
-//       ( Ndef(\orb3).ar * \amp3.kr(1, spec:\ampx4.asSpec) ) +
-//       ( Ndef(\orb4).ar * \amp4.kr(1, spec:\ampx4.asSpec) ) +
-//       ( Ndef(\orb5).ar * \amp5.kr(1, spec:\ampx4.asSpec) ) +
-//       ( Ndef(\orb6).ar * \amp6.kr(1, spec:\ampx4.asSpec) ) +
-//       ( Ndef(\orb7).ar * \amp7.kr(1, spec:\ampx4.asSpec) ) +
-//       ( Ndef(\orb8).ar * \amp8.kr(1, spec:\ampx4.asSpec) )
-//     );
-//   }).play.vol_(0.5);
-// }.play;
-// );
+  // (
+  //   Task {
+  //   ( q.numOrbs ).do { |i|
+  //     var j = i + 1;
+  //     var orbit = format("orb%",j).asSymbol;
+  //     q[ orbit ] = ~dirt.orbits[i];
+  //     wait(0.05);
+  //     Ndef( orbit ).ar(2);
+  //     wait(0.05);
+  //     Ndef( orbit ).proxyspace.quant_(1).clock_(t);
+  //     wait(0.05);
+  //     q[ orbit ].outBus = Ndef( orbit ).bus;
+  //     wait(0.05);
+  //     Ndef( orbit ).play( q.orbits_out_chans[i] /* + 2 */ );
+  //     wait(0.05);
+  //     Ndef( orbit ).vol_(0.5);
+  //     wait(0.05);
+  //   };
+  //   Ndef( \allOrbs, {
+  //     Limiter.ar(
+  //     ( Ndef(\orb1).ar * \amp1.kr(1, spec:\ampx4.asSpec) ) +
+  //       ( Ndef(\orb2).ar * \amp2.kr(1, spec:\ampx4.asSpec) ) +
+  //       ( Ndef(\orb3).ar * \amp3.kr(1, spec:\ampx4.asSpec) ) +
+  //       ( Ndef(\orb4).ar * \amp4.kr(1, spec:\ampx4.asSpec) ) +
+  //       ( Ndef(\orb5).ar * \amp5.kr(1, spec:\ampx4.asSpec) ) +
+  //       ( Ndef(\orb6).ar * \amp6.kr(1, spec:\ampx4.asSpec) ) +
+  //       ( Ndef(\orb7).ar * \amp7.kr(1, spec:\ampx4.asSpec) ) +
+  //       ( Ndef(\orb8).ar * \amp8.kr(1, spec:\ampx4.asSpec) )
+  //     );
+  //   }).play.vol_(0.5);
+  // }.play;
+  // );
 
-// wait(8);
-// "~/SuperCollider/FX/myTidalFx.scd".standardizePath.load;
-wait(1);
+  // wait(8);
+  // "~/SuperCollider/FX/myTidalFx.scd".standardizePath.load;
+  wait(1);
 
-////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////
 
-// Recursive routine to search for folders with sound files and process them
+  // Recursive routine to search for folders with sound files and process them
 (
-fork{
-  q.basePath = "~/Samples/".standardizePath;
-  q.previouslyLoadedKeys = ~dirt.buffers.keys;
+  fork{
 
-  // ~dirt.loadSoundFiles;
-  // q.ds_default = {q.postSampleInfo(~dirt.buffers.keys)};
+    // ~dirt.loadSoundFiles;
+    // q.ds_default = {q.postSampleInfo(~dirt.buffers.keys)};
 
-  q.postSampleInfo = { |ev buffers|
-    var keys = buffers.asArray.sort;
-    keys.do { |name|
-      var samp = ~dirt.buffers[name];
-      "% (%)   % - % sec (% kB)\n".postf(
-      name,
-          ~dirt.buffers[name].size,
-          samp.minItem { |x| x.duration }.duration.round(0.01),
-          samp.maxItem { |x| x.duration }.duration.round(0.01),
-          samp.sum { |x| x.memoryFootprint } div: 1e3
-      );
-    };
-    ''.postln;
-  };
-
-    q.write_in_file = { |ev bank_name buffers|
+    q.postSampleInfo = { |ev buffers|
       var keys = buffers.asArray.sort;
       keys.do { |name|
         var samp = ~dirt.buffers[name];
-        q.f_samps.write(format( "  %:\n", name));
-        q.f_samps.write(format( "    variations: %\n", ~dirt.buffers[name].size));
-        if ( samp.minItem { |x| x.duration }.duration.round(0.01) <= 2.0 ) {
-          q.f_samps.write(format( "    is_shorter: true\n", bank_name, name));
-        };
-        if (( samp.minItem { |x| x.duration }.duration.round(0.01) > 2.0 ) && ( samp.minItem { |x| x.duration }.duration.round(0.01) <= 4.0)) {
-          q.f_samps.write(format( "    is_short: true\n", bank_name, name));
-        };
-        if (( samp.maxItem { |x| x.duration }.duration.round(0.01) > 4.0 ) && ( samp.maxItem { |x| x.duration }.duration.round(0.01) < 8.0) ) {
-          q.f_samps.write(format( "    is_long: true\n", bank_name, name));
-        };
-        if ( samp.maxItem { |x| x.duration }.duration.round(0.01) >= 8.0 ) {
-          q.f_samps.write(format( "    is_longer: true\n", bank_name, name));
-        };
+        "% (%)   % - % sec (% kB)\n".postf(
+        name,
+            ~dirt.buffers[name].size,
+            samp.minItem { |x| x.duration }.duration.round(0.01),
+            samp.maxItem { |x| x.duration }.duration.round(0.01),
+            samp.sum { |x| x.memoryFootprint } div: 1e3
+        );
+      };
+      ''.postln;
+    };
+    q.sound_bank;
+    q.write_in_file = { |ev bank_name drummachine sample_folder|
+      var name = sample_folder.asSymbol;
+      var samp = ~dirt.buffers[name];
+      if (q.sound_bank != bank_name) {
+        q.f_samps.write(format("\n%:\n",bank_name));
+        q.f_samps.write(format("  drummachine: %\n",drummachine));
+        // q.f_samps.write(format("  samps:\n"));
+        q.sound_bank = bank_name;
+      };
+      q.f_samps.write(format( "  %:\n", name));
+      q.f_samps.write(format( "    variations: %\n", ~dirt.buffers[name].size));
+      if ( samp.minItem { |x| x.duration }.duration.round(0.01) <= 2.0 ) {
+        q.f_samps.write("    is_shorter: true\n");
+      };
+      if (( samp.minItem { |x| x.duration }.duration.round(0.01) > 2.0 ) && ( samp.minItem { |x| x.duration }.duration.round(0.01) <= 4.0)) {
+        q.f_samps.write("    is_short: true\n");
+      };
+      if (( samp.maxItem { |x| x.duration }.duration.round(0.01) > 4.0 ) && ( samp.maxItem { |x| x.duration }.duration.round(0.01) < 8.0) ) {
+        q.f_samps.write("    is_long: true\n");
+      };
+      if ( samp.maxItem { |x| x.duration }.duration.round(0.01) >= 8.0 ) {
+        q.f_samps.write("    is_longer: true\n");
       };
       ''.postln;
     };
 
-  // Function to create a valid bank name and process sound files
-  q.bank_names = Set[];
-(
-    q.processBank = { |ev bank|
-      var filteredKeys,call_samps_info;
+    // Function to create a valid bank name and process sound files
+    q.bank_names = Set[];
 
+    q.make_bank_name = { |ev bank|
       // Process bank name: remove specific words and sanitize the names
-      var bank_name = bank.fullPath
-        .split
-        .last
-        .replace("tidal", "")
-        .replace("samples", "")
-        // .replace("sounds", "")
-        .replace("-", "_")
-        .replace(" ", "_")
-        .toLower
-        .trim; // Trim any leading or trailing whitespace
+      var bank_name;
+      if (bank.folders.size > 0) {
+        bank_name = bank.fullPath.basename
+          .replace("tidal", "")
+          .replace("samples", "")
+          .replace("sounds", "")
+          .replace("-", "_")
+          .trim // Trim any leading or trailing whitespace
+          .replace(" ", "_")
+          .toLower
+        ;
+      };
       if ( bank_name.beginsWith("_") ) {
         bank_name = bank_name.replaceAt("", 0, 1)
       };
-      if ( bank_name.endsWith("_") ) {
-        bank_name = bank_name.replaceAt("", (bank_name.size - 1) , 1)
-      };
-      // Load all sound files in this bank
-      if (bank.folders.size > 0) {
-        ~dirt.loadSoundFiles(bank.fullPath +/+ "*");
-        // Filter out already loaded keys
-        filteredKeys = ~dirt.buffers.keys - q.previouslyLoadedKeys;
-        // Define a function to call `postSampleInfo` for this bank
-        call_samps_info = format("ds_%",bank_name).asSymbol;
-        q.f_samps.write(format("\n%:\n",bank_name));
-        // q.f_samps.write(format("%.",bank_name));
-        q[call_samps_info] = { q.postSampleInfo(filteredKeys) };
-        q.write_in_file(bank_name, filteredKeys);
-        q.previouslyLoadedKeys = ~dirt.buffers.keys;
-        // "Bank processed: %\n".postf(bank_name);
-        q.bank_names.add(bank_name);
-      };
+      q.bank_names.add(bank_name);
+      bank_name;
     };
-  );
 
-  // Function to find folders with sound files
-(
-  q.all_banks = Set[];
+    // Function to find folders with sound files
+  (
+    q.all_banks = Set[];
+    q.loaded_samples = Set[];
 
-  q.getAllsubfolders = { |ev folder|
-    var subfolders = folder.folders;
-    // Get all subfolders and filter out the already processed ones
-    subfolders.do { |subfolder|
-      if (subfolder.folderName.beginsWith("_").not) // choose not to load with a _ before dir name
-      {
-          var soundFiles = subfolder.files.collect { |file|
-            var soundFile = SoundFile.openRead(file.fullPath);
-            if (soundFile.notNil) {
-              soundFile.close;
-              file.fullPath;
-            }
-          }.select(_.notNil); // Only keep valid sound files
-
-          if (soundFiles.notEmpty) {
-            if ((subfolder.fullPath.dirname != q.basePath) and: not(q.all_banks.includes(subfolder.fullPath.dirname)))
-            {
-                var subfolder_parent = (subfolder.fullPath).dirname;
-                q.processBank(PathName(subfolder_parent));
-                // subfolder_parent.postln;
-                // q.f_samps.write(format("#%\n",subfolder_parent));
-                q.all_banks.add(subfolder_parent);
-              }
-            {
-                if ( not(q.all_banks.includes(subfolder.fullPath)) )
-                {
-                    q.processBank(PathName(subfolder.fullPath));
+    q.snoop_log_and_load_samples = { |ev folder|
+      var subfolders = folder.folders;
+      var soundFile, sound_bank, bank_name, sample_path, drummachine = false;
+      subfolders.do { |subfolder|
+        if (subfolder.folderName.beginsWith("_").not) // choose not to load with a _ before dir name
+          // check if the subfolders contains sound files
+        {
+            subfolder.files.collect { |file|
+              soundFile = SoundFile.openRead(file.fullPath);
+              if (soundFile.notNil) {
+                if ((subfolder.fullPath.dirname != q.samples_path) and: not(q.all_banks.includes(subfolder.fullPath.dirname))) {
+                  sound_bank = PathName(subfolder.fullPath.dirname); // subfolder parent
+                  bank_name = q.make_bank_name(sound_bank);
+                };
+                if ( not(q.loaded_samples.includes(file.folderName))) {
+                  sample_path = file.fullPath.dirname;
+                  ~dirt.loadSoundFiles(sample_path);
+                  if (file.folderName.endsWith("-bd")) {
+                    drummachine = true;
                   };
+                  q.loaded_samples.add(sample_path.basename);
+                  q.write_in_file(bank_name, drummachine, sample_path.basename);
+                };
+                soundFile.close;
+                file.fullPath;
               };
-          };
-          q.getAllsubfolders(subfolder);
-        }
+            };
+
+        q.snoop_log_and_load_samples(subfolder);
+      }
     };
   };
 );
   1.wait;
-  q.getAllsubfolders(PathName(q.basePath));
+  q.snoop_log_and_load_samples(PathName(q.samples_path));
   q.f_samps.close;
 };
 );
-
 /////////////////////////////////////////////////////////////
 
 /*
@@ -284,10 +268,10 @@ q.print_dirt_stuff_params = {
 "super-dirt prepared".postln;
 "check all FX and synths with:\n q.print_dirt_stuff\n".postln;
 
-  // {q.f_samps.close;}.defer(8);
-  q.print_samples = {
-    "print samples set with:".postln;
-    q.bank_names.collect{|bank|
+// {q.f_samps.close;}.defer(8);
+q.print_samples = {
+  "print samples set with:".postln;
+  q.bank_names.collect{|bank|
     postf("q.ds_%\n", bank.basename)
   };
   '';
@@ -301,7 +285,7 @@ do_this
 };
 };*/
 q.print_samples;
-    );
+);
 
 { q.print_dirt_stuff_params; }.defer(1);
 };
