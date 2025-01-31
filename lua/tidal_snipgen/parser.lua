@@ -35,19 +35,5 @@ function M.parse_yaml(file_path)
 		return nil, err
 	end
 
-	-- Add path normalization after parsing
-	for bank_name, bank_data in pairs(data) do
-		for sample_name, sample_info in pairs(bank_data) do
-			if type(sample_name) == "string" then
-				-- Normalize Windows paths
-				local normalized = sample_name:gsub("\\", "/")
-				if normalized ~= sample_name then
-					bank_data[normalized] = bank_data[sample_name]
-					bank_data[sample_name] = nil
-				end
-			end
-		end
-	end
-
 	return data
 end

@@ -1,9 +1,9 @@
 --  ~/.config/nvim/lua/plugins/generate_tidal_snippets.lua
-local config = require("tidal_snipgen.config")
-local parser = require("tidal_snipgen.parser")
+-- local config = require("tidal_snipgen.config")
+-- local parser = require("tidal_snipgen.parser")
 local io = require("io")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
-local paths = require("tidal_snipgen.paths")
+-- local paths = require("tidal_snipgen.paths")
 
 -- Function to classify sound banks and generate unique prefixes
 local function classify_sound_banks(data)
@@ -142,12 +142,13 @@ end
 -- Main function to parse YAML and generate snippets
 local M = {
 	generate = function()
-		-- Get actual paths
-		local yaml_paths = {
-			samps = paths.get_temp_dir() .. package.config:sub(1, 1) .. "dirt_samps.yaml",
-		}
+		local dirman = require("tidal_snipgen.dir_manager")
+		local parser = require("tidal_snipgen.parser")
 
-		local data = parser.parse_yaml(yaml_paths.samps)
+		-- Get actual paths
+		local yaml_path = dirman.normalize_path(paths.get_temp_dir() .. package.config:sub(1, 1) .. "dirt_samps.yaml")
+
+		local data = parser.parse_yaml(yaml_path)
 		if not data then
 			vim.notify("Failed to load sample data", vim.log.levels.ERROR)
 			return

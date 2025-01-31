@@ -3,7 +3,15 @@ local config = require("tidal_snipgen.config")
 local generate = require("tidal_snipgen.generate")
 local ui = require("tidal_snipgen.ui")
 local loader = require("tidal_snipgen.yaml_loader")
-local dirmanager = require("tidal_snipgen.dir_manager")
+local dirman = require("tidal_snipgen.dir_manager")
+
+-- Ensure normalized temp directory
+dirman.ensure_temp_dir()
+
+-- Handle Windows paths in user config
+if user_config and user_config.custom_samples_path then
+	user_config.custom_samples_path = dirman.normalize_path(user_config.custom_samples_path)
+end
 
 local M = {}
 
@@ -18,7 +26,7 @@ end
 
 function M.setup(user_config)
 	config.setup(user_config)
-	dirmanager.ensure_temp_dir()
+	dirman.ensure_temp_dir()
 
 	-- Create commands
 	vim.api.nvim_create_user_command("TidalSnipgenGenerate", function()

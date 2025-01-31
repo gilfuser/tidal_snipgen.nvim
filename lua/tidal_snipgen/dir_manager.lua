@@ -2,6 +2,14 @@ local paths = require("tidal_snipgen.paths")
 
 local M = {}
 
+function M.normalize_path(path)
+	return path:gsub("\\", "/")
+end
+
+function M.normalize_path(path)
+	return path:gsub("\\", "/")
+end
+
 function M.ensure_temp_dir()
 	local temp_dir = paths.get_temp_dir()
 	vim.fn.mkdir(temp_dir, "p", 0755)
