@@ -1,16 +1,50 @@
---  ~/.config/nvim/lua/plugins/tidal_snipgen/init.lua
-local sound_banks = require("tidal_snipgen.show_sound_banks")
+-- init.lua
+local config = require("tidal_snipgen.config")
+local generate = require("tidal_snipgen.generate")
+local ui = require("tidal_snipgen.ui")
+local loader = require("tidal_snipgen.yaml_loader")
+local dirmanager = require("tidal_snipgen.dir_manager")
 
--- Paths
-local yaml_file_path = vim.fn.expand("~/Samples/dirt_samps.yaml")
+local M = {}
 
--- Generate and load the snippets
-require("tidal_snipgen.generate_tidal_snippets")
--- Command to toggle sound banks floating window
+function M.reload_samples()
+	local data = loader.load_dirt_samples()
+	if not data.yaml_data.samps then
+		vim.notify("No sample data found", vim.log.levels.WARN)
+		return
+	end
+	generate.generate(data.yaml_data.samps) -- Changed to match generate.lua exports
+end
 
-vim.api.nvim_create_user_command("ShowSoundBanks", function()
-	sound_banks.display_sound_banks(yaml_file_path)
-end, {})
+function M.setup(user_config)
+	config.setup(user_config)
+	dirmanager.ensure_temp_dir()
 
--- Keybinding to toggle sound banks floating window
-vim.api.nvim_set_keymap("n", "<leader>sb", ":ShowSoundBanks<CR>", { noremap = true, silent = true })
+	-- Create commands
+	vim.api.nvim_create_user_command("TidalSnipgenGenerate", function()
+		generate.generate()
+	end, {})
+
+	vim.api.nvim_create_user_command("TidalSnipgenShowBanks", function()
+		ui.show_sound_banks()
+	end, {})
+
+	-- Set keymaps
+	if config.user_config.keymaps.show_banks then
+		vim.keymap.set(
+			"n",
+			config.user_config.keymaps.show_banks,
+			"<cmd>TidalSnipgenShowBanks<CR>",
+			{ silent = true, noremap = true }
+		)
+	end
+
+	-- Handle auto-generation
+	if config.user_config.auto_generate then
+		vim.schedule(function()
+			M.reload_samples()
+		end)
+	end
+end
+
+return M
