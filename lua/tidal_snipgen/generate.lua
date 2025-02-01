@@ -1,8 +1,6 @@
 local config = require("tidal_snipgen.config")
 local io = require("io")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
-local dirmanager = require("tidal_snipgen.dir_manager")
-local paths = require("tidal_snipgen.paths")
 
 -- Function to classify sound banks and generate unique prefixes
 local function classify_sound_banks(data)
@@ -142,6 +140,8 @@ end
 -- Main function to parse YAML and generate snippets
 local M = {
 	generate = function()
+		local paths = require("tidal_snipgen.paths")
+		local dirman = require("tidal_snipgen.dir_manager")
 		local parser = package.loaded["tidal_snipgen.parser"]
 		if not parser or type(parser) ~= "table" then
 			vim.notify("FATAL: Failed to load parser module", vim.log.levels.ERROR)
@@ -163,12 +163,9 @@ local M = {
 		-- Generate snippets
 		local snippets = generate_snippets(data)
 
-		-- Ensure the output directory exists
-		local output_dir = config.user_config.output_path or config.expand_path("~/.config/nvim/lua/assets")
-		dirmanager.ensure_dir_exists(output_dir)
-
 		-- Write to configured output
-		local output_path = output_dir .. package.config:sub(1, 1) .. "snipgen_tidal.lua"
+		local output_path = config.user_config.output_path
+			or paths.get_temp_dir() .. package.config:sub(1, 1) .. "snipgen_tidal.lua"
 
 		local file = io.open(output_path, "w")
 		if file then

@@ -88,8 +88,8 @@ end
 function M.generate_unique_trigger(existing_triggers, prefix, suffix)
 	local trigger = prefix .. suffix
 
-	-- Ensure consistent slash direction for the trigger
-	trigger = trigger:gsub("\\", "/") -- Windows compatibility
+	-- Ensure consistent slash direction
+	sample_name = sample_name:gsub("\\", "/") -- Windows compatibility
 
 	-- Check if the base trigger is unique
 	if not existing_triggers[trigger] then

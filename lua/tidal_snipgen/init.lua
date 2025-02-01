@@ -21,7 +21,7 @@ function M.reload_samples()
 		vim.notify("No sample data found", vim.log.levels.WARN)
 		return
 	end
-	generate.generate(data.yaml_data.samps)
+	generate.generate(data.yaml_data.samps) -- Changed to match generate.lua exports
 end
 
 function M.setup(user_config)
