@@ -130,6 +130,7 @@ local function generate_snippets(data)
 						sample_name
 					)
 				)
+				::continue::
 			end
 		end
 	end
