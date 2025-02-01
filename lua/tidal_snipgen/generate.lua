@@ -142,11 +142,14 @@ end
 -- Main function to parse YAML and generate snippets
 local M = {
 	generate = function()
+		local paths = require("tidal_snipgen.paths")
 		local dirman = require("tidal_snipgen.dir_manager")
 		local parser = require("tidal_snipgen.parser")
 
 		-- Get actual paths
-		local yaml_path = dirman.normalize_path(paths.get_temp_dir() .. package.config:sub(1, 1) .. "dirt_samps.yaml")
+		local yaml_paths = {
+			samps = paths.get_temp_dir() .. package.config:sub(1, 1) .. "dirt_samps.yaml",
+		}
 
 		local data = parser.parse_yaml(yaml_path)
 		if not data then
