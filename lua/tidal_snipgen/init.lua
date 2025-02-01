@@ -5,6 +5,7 @@ local ui = require("tidal_snipgen.ui")
 local loader = require("tidal_snipgen.yaml_loader")
 local dirman = require("tidal_snipgen.dir_manager")
 
+require("assets.snipgen_tidal")
 -- Ensure normalized temp directory
 dirman.ensure_temp_dir()
 
