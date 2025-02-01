@@ -1,5 +1,4 @@
 -- ui.lua
-
 local parser = require("tidal_snipgen.parser")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
 local fzf_lua = require("fzf-lua")
@@ -75,6 +74,11 @@ function M.show_sound_banks(yaml_file_path, existing_data)
 		end
 	else
 		data = existing_data
+	end
+
+	if not data then
+		vim.notify("No data available to display sound banks", vim.log.levels.ERROR)
+		return
 	end
 
 	local sound_banks = {}
