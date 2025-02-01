@@ -37,3 +37,5 @@ function M.parse_yaml(file_path)
 
 	return data
 end
+
+return M
