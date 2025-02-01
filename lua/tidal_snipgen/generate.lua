@@ -1,9 +1,9 @@
 --  ~/.config/nvim/lua/plugins/generate_tidal_snippets.lua
--- local config = require("tidal_snipgen.config")
--- local parser = require("tidal_snipgen.parser")
+local config = require("tidal_snipgen.config")
+local parser = require("tidal_snipgen.parser")
 local io = require("io")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
--- local paths = require("tidal_snipgen.paths")
+local paths = require("tidal_snipgen.paths")
 
 -- Function to classify sound banks and generate unique prefixes
 local function classify_sound_banks(data)
@@ -101,8 +101,8 @@ local function generate_snippets(data)
 
 				-- Ensure variations is not nil
 				if sample_attributes.variations == nil then
-					vim.notify("Missing variations for: " .. sample_name, vim.log.levels.ERROR)
-					return -- Skip this entry
+					vim.notify("Skipping sample with missing variations: " .. sample_name, vim.log.levels.WARN)
+					goto continue -- Skip only this iteration
 				end
 
 				local description = sound_bank .. " " .. sample_attributes.variations
@@ -151,9 +151,9 @@ local M = {
 			samps = paths.get_temp_dir() .. package.config:sub(1, 1) .. "dirt_samps.yaml",
 		}
 
-		local data = parser.parse_yaml(yaml_path)
+		local data, err = parser.parse_yaml(yaml_paths.samps)
 		if not data then
-			vim.notify("Failed to load sample data", vim.log.levels.ERROR)
+			vim.notify("Failed to load sample data: " .. tostring(err), vim.log.levels.ERROR)
 			return
 		end
 
