@@ -140,43 +140,42 @@ local function generate_snippets(data)
 end
 
 -- Main function to parse YAML and generate snippets
-local M = local M = {
-  generate = function()
-    local parser = package.loaded["tidal_snipgen.parser"]
-    if not parser or type(parser) ~= "table" then
-      vim.notify("FATAL: Failed to load parser module", vim.log.levels.ERROR)
-      return
-    end
-    assert(type(parser) == "table", "Parser module failed to load")
+local M = {
+	generate = function()
+		local parser = package.loaded["tidal_snipgen.parser"]
+		if not parser or type(parser) ~= "table" then
+			vim.notify("FATAL: Failed to load parser module", vim.log.levels.ERROR)
+			return
+		end
+		assert(type(parser) == "table", "Parser module failed to load")
 
-    -- Get actual paths
-    local yaml_paths = {
-      samps = paths.get_temp_dir() .. package.config:sub(1, 1) .. "dirt_samps.yaml",
-    }
+		-- Get actual paths
+		local yaml_paths = {
+			samps = paths.get_temp_dir() .. package.config:sub(1, 1) .. "dirt_samps.yaml",
+		}
 
-    local data, err = parser.parse_yaml(yaml_paths.samps)
-    if not data then
-      vim.notify("Failed to load sample data: " .. tostring(err), vim.log.levels.ERROR)
-      return
-    end
+		local data, err = parser.parse_yaml(yaml_paths.samps)
+		if not data then
+			vim.notify("Failed to load sample data: " .. tostring(err), vim.log.levels.ERROR)
+			return
+		end
 
-    -- Generate snippets
-    local snippets = generate_snippets(data)
+		-- Generate snippets
+		local snippets = generate_snippets(data)
 
-    -- Ensure the output directory exists
-    local output_dir = config.user_config.output_path
-    or expand_path("~/.config/nvim/lua/assets")
-    dirmanager.ensure_dir_exists(output_dir)
+		-- Ensure the output directory exists
+		local output_dir = config.user_config.output_path or expand_path("~/.config/nvim/lua/assets")
+		dirmanager.ensure_dir_exists(output_dir)
 
-    -- Write to configured output
-    local output_path = output_dir .. package.config:sub(1, 1) .. "snipgen_tidal.lua"
+		-- Write to configured output
+		local output_path = output_dir .. package.config:sub(1, 1) .. "snipgen_tidal.lua"
 
-    local file = io.open(output_path, "w")
-    if file then
-      file:write(snippets)
-      file:close()
-      vim.notify("Snippets generated: " .. output_path)
-    end
-  end,
+		local file = io.open(output_path, "w")
+		if file then
+			file:write(snippets)
+			file:close()
+			vim.notify("Snippets generated: " .. output_path)
+		end
+	end,
 }
 return M
