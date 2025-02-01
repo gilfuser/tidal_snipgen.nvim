@@ -164,7 +164,7 @@ local M = {
 		local snippets = generate_snippets(data)
 
 		-- Ensure the output directory exists
-		local output_dir = config.user_config.output_path or expand_path("~/.config/nvim/lua/assets")
+		local output_dir = config.user_config.output_path or config.expand_path("~/.config/nvim/lua/assets")
 		dirmanager.ensure_dir_exists(output_dir)
 
 		-- Write to configured output

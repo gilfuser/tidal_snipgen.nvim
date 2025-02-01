@@ -49,4 +49,6 @@ function M.setup(user_config)
 	end
 end
 
+M.expand_path = expand_path -- Export expand_path for use in other modules
+
 return M
