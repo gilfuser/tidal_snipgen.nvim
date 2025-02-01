@@ -1,9 +1,9 @@
 --  ~/.config/nvim/lua/plugins/generate_tidal_snippets.lua
 local config = require("tidal_snipgen.config")
-local parser = require("tidal_snipgen.parser")
+-- local parser = require("tidal_snipgen.parser")
 local io = require("io")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
-local paths = require("tidal_snipgen.paths")
+-- local paths = require("tidal_snipgen.paths")
 
 -- Function to classify sound banks and generate unique prefixes
 local function classify_sound_banks(data)
@@ -146,6 +146,9 @@ local M = {
 		local paths = require("tidal_snipgen.paths")
 		local dirman = require("tidal_snipgen.dir_manager")
 		local parser = require("tidal_snipgen.parser")
+		print("Parser module contents:", vim.inspect(parser))
+		print("Parser type:", type(parser)) -- Should print "table"
+		assert(type(parser) == "table", "Parser module failed to load")
 
 		-- Get actual paths
 		local yaml_paths = {
