@@ -1,6 +1,7 @@
--- In tidal_snipgen/config.lua
+-- config.lua
 local paths = require("tidal_snipgen.paths")
 local dirmanager = require("tidal_snipgen.dir_manager")
+
 local function get_platform_sep()
 	return package.config:sub(1, 1) -- Returns "/" for Unix, "\" for Windows
 end
@@ -39,6 +40,12 @@ function M.setup(user_config)
 	-- If user provides custom path, write it immediately
 	if user_config and user_config.custom_samples_path then
 		dirmanager.write_samples_path(user_config.custom_samples_path)
+	end
+
+	-- Ensure the output directory exists
+	if M.user_config.output_path then
+		M.user_config.output_path = expand_path(M.user_config.output_path)
+		dirmanager.ensure_dir_exists(vim.fn.fnamemodify(M.user_config.output_path, ":h"))
 	end
 end
 

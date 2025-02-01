@@ -5,7 +5,6 @@ local ui = require("tidal_snipgen.ui")
 local loader = require("tidal_snipgen.yaml_loader")
 local dirman = require("tidal_snipgen.dir_manager")
 
-require("assets.snipgen_tidal")
 -- Ensure normalized temp directory
 dirman.ensure_temp_dir()
 
@@ -22,7 +21,7 @@ function M.reload_samples()
 		vim.notify("No sample data found", vim.log.levels.WARN)
 		return
 	end
-	generate.generate(data.yaml_data.samps) -- Changed to match generate.lua exports
+	generate.generate(data.yaml_data.samps)
 end
 
 function M.setup(user_config)
