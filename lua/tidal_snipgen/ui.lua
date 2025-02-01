@@ -1,3 +1,5 @@
+-- ui.lua
+
 local parser = require("tidal_snipgen.parser")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
 local fzf_lua = require("fzf-lua")
@@ -49,7 +51,7 @@ local function display_samples(data, sound_bank)
 				end
 			end,
 			["ctrl-h"] = function()
-				M.display_sound_banks(nil, data) -- Go back to sound banks
+				M.show_sound_banks(nil, data) -- Go back to sound banks
 			end,
 			["esc"] = fzf_actions.close, -- Close the FZF window
 		},
@@ -63,7 +65,7 @@ local function display_samples(data, sound_bank)
 	})
 end
 
-function M.display_sound_banks(yaml_file_path, existing_data)
+function M.show_sound_banks(yaml_file_path, existing_data)
 	local data, err
 	if yaml_file_path then
 		data, err = parser.parse_yaml(yaml_file_path)
