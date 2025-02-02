@@ -1,23 +1,18 @@
--- ~/.config/nvim/lua/plugins/tidal_snipgen/parser.lua
+local yaml = require("tidal_snipgen.yaml")
 
--- Ensure LuaRocks paths are included
-local function add_luarocks_path()
-	local package_path_str =
-		vim.fn.expand("~/.luarocks/share/lua/5.4/?.lua;/home/skmecs/.luarocks/share/lua/5.4/?/init.lua;")
-	local install_cpath_pattern = vim.fn.expand("~/.luarocks/lib/lua/5.4/?.so;")
-
-	if not string.find(package.path, package_path_str, 1, true) then
-		package.path = package.path .. ";" .. package_path_str
+local function validate_structure(data)
+	if type(data) ~= "table" then
+		return false, "Invalid YAML structure: root must be a table"
 	end
 
-	if not string.find(package.cpath, install_cpath_pattern, 1, true) then
-		package.cpath = package.cpath .. ";" .. install_cpath_pattern
+	for bank, attrs in pairs(data) do
+		if type(attrs) ~= "table" then
+			return false, "Invalid bank structure: " .. bank
+		end
 	end
+
+	return true
 end
-
-add_luarocks_path()
-
-local yaml = require("yaml")
 
 local M = {}
 
@@ -30,9 +25,19 @@ function M.parse_yaml(file_path)
 	local content = file:read("*all")
 	file:close()
 
-	local data, err = yaml.eval(content)
-	if err then
-		return nil, "YAML Parsing Error: " .. err
+	local success, data = pcall(yaml.eval, content)
+	if not success then
+		return nil, "YAML Parsing Error: " .. data
+	end
+
+	local valid, err = validate_structure(data)
+	if not valid then
+		return nil, err
+	end
+
+	-- Ensure root level is always a table
+	if type(data) ~= "table" then
+		return nil, "YAML root must be a table"
 	end
 
 	return data

@@ -1,7 +1,9 @@
-local parser = require("tidal_snipgen.parser")
+-- ui.lua
 local trigger_utils = require("tidal_snipgen.trigger_utils")
 local fzf_lua = require("fzf-lua")
 local fzf_actions = require("fzf-lua.actions")
+local process = require("tidal_snipgen.process")
+local loader = require("tidal_snipgen.yaml_loader")
 
 local M = {}
 
@@ -49,7 +51,7 @@ local function display_samples(data, sound_bank)
 				end
 			end,
 			["ctrl-h"] = function()
-				M.display_sound_banks(nil, data) -- Go back to sound banks
+				M.show_sound_banks(nil, data) -- Go back to sound banks
 			end,
 			["esc"] = fzf_actions.close, -- Close the FZF window
 		},
@@ -63,22 +65,27 @@ local function display_samples(data, sound_bank)
 	})
 end
 
-function M.display_sound_banks(yaml_file_path, existing_data)
-	local data, err
-	if yaml_file_path then
-		data, err = parser.parse_yaml(yaml_file_path)
-		if not data then
-			vim.notify("Error parsing YAML file: " .. err, vim.log.levels.ERROR)
-			return
-		end
-	else
-		data = existing_data
+function M.show_sound_banks()
+	local data = loader.load_dirt_samples()
+	local errors = process.check_dependencies()
+
+	if #errors > 0 then
+		vim.notify("Prerequisites missing:\n- " .. table.concat(errors, "\n- "), vim.log.levels.ERROR)
+		return
 	end
 
+	if not data or not data.samps or vim.tbl_isempty(data.samps) then
+		vim.notify(
+			"No sound banks found. Check:\n1. SuperDirt is initialized\n2. Samples are loaded",
+			vim.log.levels.ERROR
+		)
+		return
+	end
+	-- Use only the samps data
 	local sound_banks = {}
 	local existing_prefixes = {}
 
-	for sound_bank, attributes in pairs(data) do
+	for sound_bank, attributes in pairs(data.samps) do
 		local prefix = trigger_utils.generate_unique_prefix(existing_prefixes, sound_bank)
 		existing_prefixes[prefix] = sound_bank
 
@@ -90,11 +97,7 @@ function M.display_sound_banks(yaml_file_path, existing_data)
 		table.insert(sound_banks, display_name)
 	end
 
-	if #sound_banks == 0 then
-		vim.notify("No sound banks found", vim.log.levels.ERROR)
-		return
-	end
-
+	-- Sort and display
 	table.sort(sound_banks)
 
 	fzf_lua.fzf_exec(sound_banks, {
@@ -103,7 +106,7 @@ function M.display_sound_banks(yaml_file_path, existing_data)
 			["default"] = function(selected)
 				local sound_bank = selected[1]:match("-> (%S+)")
 				if sound_bank then
-					display_samples(data, sound_bank)
+					display_samples(data.samps, sound_bank) -- Pass samps data
 				else
 					vim.notify("Invalid selection", vim.log.levels.ERROR)
 				end
@@ -111,18 +114,18 @@ function M.display_sound_banks(yaml_file_path, existing_data)
 			["ctrl-l"] = function(selected)
 				local sound_bank = selected[1]:match("-> (%S+)")
 				if sound_bank then
-					display_samples(data, sound_bank)
+					display_samples(data.samps, sound_bank) -- Pass samps data
 				else
 					vim.notify("Invalid selection", vim.log.levels.ERROR)
 				end
 			end,
-			["esc"] = fzf_actions.close, -- Close the FZF window
+			["esc"] = fzf_actions.close,
 		},
 		winopts = {
-			height = 0.9, -- Make it taller
-			width = 0.2, -- Make it thinner
-			row = 0.1, -- Align to the top
-			col = 1, -- Align to the right
+			height = 0.9,
+			width = 0.2,
+			row = 0.1,
+			col = 1,
 			border = "rounded",
 		},
 	})

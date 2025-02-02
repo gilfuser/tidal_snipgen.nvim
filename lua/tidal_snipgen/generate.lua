@@ -1,7 +1,10 @@
---  ~/.config/nvim/lua/plugins/generate_tidal_snippets.lua
-local parser = require("tidal_snipgen.parser")
+-- generate.lua
+local config = require("tidal_snipgen.config")
 local io = require("io")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
+local dirmanager = require("tidal_snipgen.dir_manager")
+local paths = require("tidal_snipgen.paths")
+local parser = require("tidal_snipgen.parser") -- Ensure parser is required here
 
 -- Function to classify sound banks and generate unique prefixes
 local function classify_sound_banks(data)
@@ -73,12 +76,13 @@ end
 
 -- Function to generate LuaSnip snippets
 local function generate_snippets(data)
+	local timestamp = os.date("generated in %Y-%m-%d, at %H:%M:%S")
 	local snippets = {}
 	table.insert(snippets, 'local ls = require("luasnip")')
 	table.insert(snippets, "local s = ls.snippet")
 	table.insert(snippets, "local t = ls.text_node")
 	table.insert(snippets, "")
-	table.insert(snippets, "-- Define your Tidal Cycles snippets here")
+	table.insert(snippets, "-- " .. timestamp)
 	table.insert(snippets, 'ls.add_snippets("tidal", {')
 
 	local existing_triggers = {}
@@ -99,11 +103,8 @@ local function generate_snippets(data)
 
 				-- Ensure variations is not nil
 				if sample_attributes.variations == nil then
-					error(
-						"Error: 'variations' attribute is nil for sample '"
-							.. sample_name
-							.. "'. Please check the .yaml file."
-					)
+					vim.notify("Skipping sample with missing variations: " .. sample_name, vim.log.levels.WARN)
+					goto continue -- Skip only this iteration
 				end
 
 				local description = sound_bank .. " " .. sample_attributes.variations
@@ -131,6 +132,7 @@ local function generate_snippets(data)
 						sample_name
 					)
 				)
+				::continue::
 			end
 		end
 	end
@@ -141,26 +143,39 @@ local function generate_snippets(data)
 end
 
 -- Main function to parse YAML and generate snippets
-local function main()
-	local yaml_file_path = vim.fn.expand("~/Samples/dirt_samps.yaml")
-	local output_file_path = vim.fn.expand("~/.config/nvim/luasnippets/snipgen_tidal.lua")
+local M = {
+	generate = function()
+		local yaml_paths = {
+			samps = paths.get_temp_dir() .. package.config:sub(1, 1) .. "dirt_samps.yaml",
+		}
 
-	local data, err = parser.parse_yaml(yaml_file_path)
-	if not data then
-		error("Error parsing YAML file: " .. err)
-	end
+		local data, err = parser.parse_yaml(yaml_paths.samps)
+		if not data then
+			vim.notify("Failed to load sample data: " .. tostring(err), vim.log.levels.ERROR)
+			return
+		end
 
-	local snippets = generate_snippets(data)
+		-- Generate snippets
+		local snippets = generate_snippets(data)
 
-	local file = io.open(output_file_path, "w")
-	if not file then
-		error("Cannot open file for writing: " .. output_file_path)
-	end
+		-- Ensure the output directory exists
+		local output_file = config.user_config.output_path
+		local assets_dir = vim.fn.fnamemodify(output_file, ":h")
 
-	file:write(snippets)
-	file:close()
+		-- Ensure the directory exists
+		if vim.fn.isdirectory(assets_dir) == 0 then
+			vim.fn.mkdir(assets_dir, "p")
+		end
 
-	print("Snippets generated and written to " .. output_file_path)
-end
-
-main()
+		-- Write to the output file
+		local file = io.open(output_file, "w")
+		if file then
+			file:write(snippets)
+			file:close()
+			vim.notify("Snippets generated: " .. output_file)
+		else
+			vim.notify("Failed to write snippets to: " .. output_file, vim.log.levels.ERROR)
+		end
+	end,
+}
+return M
