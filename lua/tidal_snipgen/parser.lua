@@ -35,6 +35,11 @@ function M.parse_yaml(file_path)
 		return nil, err
 	end
 
+	-- Ensure root level is always a table
+	if type(data) ~= "table" then
+		return nil, "YAML root must be a table"
+	end
+
 	return data
 end
 

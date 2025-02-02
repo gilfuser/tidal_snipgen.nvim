@@ -1,33 +1,43 @@
+-- yaml_loader.lua
+local yaml = require("tidal_snipgen.yaml")
 local paths = require("tidal_snipgen.paths")
-local yaml = require("tidal_snipgen.yaml") -- Your custom parser
 
 local M = {}
 
 function M.load_dirt_samples()
-	local samples_dir = paths.resolve_samples_dir()
-	local temp_dir = paths.get_temp_dir()
 	local yaml_files = {
-		samps = temp_dir .. "/dirt_samps.yaml",
-		-- synths = temp_dir .. "/dirt_synths.yaml",
-		-- fx = temp_dir .. "/dirt_fx.yaml",
+		samps = paths.get_temp_dir() .. "dirt_samps.yaml",
+		synths = paths.get_temp_dir() .. "dirt_synths.yaml",
+		fx = paths.get_temp_dir() .. "dirt_fx.yaml",
 	}
 
-	local data = {}
+	local data = { samps = {}, synths = {}, fx = {} }
 
 	for type, path in pairs(yaml_files) do
 		local file = io.open(path, "r")
 		if file then
 			local content = file:read("*a")
 			file:close()
-			data[type] = yaml.eval(content) or {}
+			local success, parsed = pcall(yaml.eval, content)
+			if success then
+				data[type] = parsed
+			else
+				vim.notify("Failed to parse YAML: " .. path, vim.log.levels.ERROR)
+			end
+		else
+			-- Create empty file if it doesn't exist
+			file = io.open(path, "w")
+			if file then
+				file:write("---\n") -- Write empty YAML
+				file:close()
+				data[type] = {}
+			else
+				vim.notify("Could not create YAML file: " .. path, vim.log.levels.ERROR)
+			end
 		end
 	end
 
-	return {
-		samples_dir = samples_dir,
-		yaml_data = data,
-		temp_dir = temp_dir,
-	}
+	return data
 end
 
 return M

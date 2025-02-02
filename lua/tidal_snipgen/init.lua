@@ -17,16 +17,27 @@ local M = {}
 
 function M.reload_samples()
 	local data = loader.load_dirt_samples()
-	if not data.yaml_data.samps then
+
+	if data and data.samps then
+		generate.generate(data.samps)
+	else
 		vim.notify("No sample data found", vim.log.levels.WARN)
-		return
 	end
-	generate.generate(data.yaml_data.samps) -- Changed to match generate.lua exports
 end
 
 function M.setup(user_config)
 	config.setup(user_config)
 	dirman.ensure_temp_dir()
+
+	-- Optional dependency check
+	vim.schedule(function()
+		local process = require("tidal_snipgen.process")
+		process.check_dependencies() -- Just prints warnings if missing
+	end)
+	-- Auto-require generated snippets
+	vim.schedule(function()
+		pcall(require, "assets.snipgen_tidal")
+	end)
 
 	-- Create commands
 	vim.api.nvim_create_user_command("TidalSnipgenGenerate", function()

@@ -1,6 +1,10 @@
+-- generate.lua
 local config = require("tidal_snipgen.config")
 local io = require("io")
 local trigger_utils = require("tidal_snipgen.trigger_utils")
+local dirmanager = require("tidal_snipgen.dir_manager")
+local paths = require("tidal_snipgen.paths")
+local parser = require("tidal_snipgen.parser") -- Ensure parser is required here
 
 -- Function to classify sound banks and generate unique prefixes
 local function classify_sound_banks(data)
@@ -72,12 +76,13 @@ end
 
 -- Function to generate LuaSnip snippets
 local function generate_snippets(data)
+	local timestamp = os.date("generated in %Y-%m-%d, at %H:%M:%S")
 	local snippets = {}
 	table.insert(snippets, 'local ls = require("luasnip")')
 	table.insert(snippets, "local s = ls.snippet")
 	table.insert(snippets, "local t = ls.text_node")
 	table.insert(snippets, "")
-	-- table.insert(snippets, "generated in" .. ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE})
+	table.insert(snippets, "-- " .. timestamp)
 	table.insert(snippets, 'ls.add_snippets("tidal", {')
 
 	local existing_triggers = {}
@@ -140,16 +145,6 @@ end
 -- Main function to parse YAML and generate snippets
 local M = {
 	generate = function()
-		local paths = require("tidal_snipgen.paths")
-		local dirman = require("tidal_snipgen.dir_manager")
-		local parser = package.loaded["tidal_snipgen.parser"]
-		if not parser or type(parser) ~= "table" then
-			vim.notify("FATAL: Failed to load parser module", vim.log.levels.ERROR)
-			return
-		end
-		assert(type(parser) == "table", "Parser module failed to load")
-
-		-- Get actual paths
 		local yaml_paths = {
 			samps = paths.get_temp_dir() .. package.config:sub(1, 1) .. "dirt_samps.yaml",
 		}
@@ -163,15 +158,23 @@ local M = {
 		-- Generate snippets
 		local snippets = generate_snippets(data)
 
-		-- Write to configured output
-		local output_path = config.user_config.output_path
-			or paths.get_temp_dir() .. package.config:sub(1, 1) .. "snipgen_tidal.lua"
+		-- Ensure the output directory exists
+		local output_file = config.user_config.output_path
+		local assets_dir = vim.fn.fnamemodify(output_file, ":h")
 
-		local file = io.open(output_path, "w")
+		-- Ensure the directory exists
+		if vim.fn.isdirectory(assets_dir) == 0 then
+			vim.fn.mkdir(assets_dir, "p")
+		end
+
+		-- Write to the output file
+		local file = io.open(output_file, "w")
 		if file then
 			file:write(snippets)
 			file:close()
-			vim.notify("Snippets generated: " .. output_path)
+			vim.notify("Snippets generated: " .. output_file)
+		else
+			vim.notify("Failed to write snippets to: " .. output_file, vim.log.levels.ERROR)
 		end
 	end,
 }

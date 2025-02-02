@@ -1,21 +1,11 @@
--- In tidal_snipgen/config.lua
 local paths = require("tidal_snipgen.paths")
 local dirmanager = require("tidal_snipgen.dir_manager")
-local function get_platform_sep()
-	return package.config:sub(1, 1) -- Returns "/" for Unix, "\" for Windows
-end
-
-local function expand_path(path)
-	local sep = get_platform_sep()
-	local home = vim.env.HOME or vim.env.USERPROFILE
-	return path:gsub("^~", home):gsub("/", sep)
-end
 
 local M = {}
 
 M.default_config = {
-	samples_path = paths.get_platform_default(),
-	output_path = nil, -- Let user override
+	samples_path = paths.resolve_samples_dir(),
+	output_path = paths.expand_path("~/.config/nvim/lua/assets/snipgen_tidal.lua"), -- Ensure this points to a file
 	keymaps = {
 		show_banks = "<leader>sb",
 	},
@@ -32,6 +22,12 @@ M.user_config = vim.deepcopy(M.default_config)
 
 function M.setup(user_config)
 	M.user_config = vim.tbl_deep_extend("force", M.default_config, user_config or {})
+
+	-- Validate output_path format
+	if M.user_config.output_path then
+		local sep = package.config:sub(1, 1)
+		M.user_config.output_path = M.user_config.output_path:gsub("[/\\]+$", "")
+	end
 
 	-- Auto-create temp dir on setup
 	dirmanager.ensure_temp_dir()
