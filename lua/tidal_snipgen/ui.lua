@@ -67,9 +67,8 @@ end
 
 function M.show_sound_banks()
 	local data = loader.load_dirt_samples()
-
-	-- Check dependencies and data validity
 	local errors = process.check_dependencies()
+
 	if #errors > 0 then
 		vim.notify("Prerequisites missing:\n- " .. table.concat(errors, "\n- "), vim.log.levels.ERROR)
 		return
@@ -82,15 +81,6 @@ function M.show_sound_banks()
 		)
 		return
 	end
-
-	-- Handle single bank case
-	local bank_count = vim.tbl_count(data.samps)
-	if bank_count == 1 then
-		local bank_name = next(data.samps)
-		display_samples(data.samps, bank_name)
-		return
-	end
-
 	-- Use only the samps data
 	local sound_banks = {}
 	local existing_prefixes = {}

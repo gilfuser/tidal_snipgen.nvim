@@ -11,20 +11,6 @@ local function classify_sound_banks(data)
 	local existing_prefixes = {}
 	local sound_bank_groups = {}
 
-	local sound_banks = vim.tbl_keys(data)
-	local is_single_bank = #sound_banks == 1
-
-	-- Existing code until trigger generation
-	local existing_prefixes = classify_sound_banks(data)
-	local existing_suffixes = classify_sample_names(data, existing_prefixes)
-
-	-- Override prefixes for single bank case
-	if is_single_bank then
-		for bank_name, _ in pairs(existing_prefixes) do
-			existing_prefixes[bank_name] = "" -- Empty prefix
-		end
-	end
-
 	-- First pass: Group sound banks by their first three characters
 	for sound_bank, attributes in pairs(data) do
 		local prefix = trigger_utils.shorten_key(sound_bank)
