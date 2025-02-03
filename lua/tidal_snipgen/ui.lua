@@ -2,33 +2,9 @@
 local trigger_utils = require("tidal_snipgen.trigger_utils")
 local fzf_lua = require("fzf-lua")
 local fzf_actions = require("fzf-lua.actions")
-local process = require("tidal_snipgen.process")
 local loader = require("tidal_snipgen.yaml_loader")
-local vim = vim -- is this really necessary?
 
 local M = {}
-
-local function send_to_tidal(message)
-	if vim.g.tidal_running then
-		vim.fn.system('tmux send-keys -t tidal:0.0 "' .. message .. '" Enter')
-	else
-		vim.notify("Tidal is not running", vim.log.levels.WARNING)
-	end
-end
-
--- Function to prelisten a sample in Tidal Cycles
-local function prelisten_sample(sample_name)
-	local play_message = 'p "monitor" $ "' .. sample_name .. '" # orbit 15'
-	local silence_message = 'p "monitor" silence'
-
-	-- Send the play message
-	send_to_tidal(play_message)
-
-	-- Set a timer to send the silence message after 4 seconds
-	vim.defer_fn(function()
-		send_to_tidal(silence_message)
-	end, 4000)
-end
 
 local function display_samples(data, sound_bank)
 	local bank_data = data[sound_bank]
@@ -74,13 +50,6 @@ local function display_samples(data, sound_bank)
 					vim.api.nvim_put({ sample_name .. " " }, "c", true, true)
 				end
 			end,
-			["ctrl-s"] = function(selected)
-				-- Extract the sample name up to the colon
-				local sample_name = selected[1]:match("^(%S+):")
-				if sample_name then
-					prelisten_sample(sample_name)
-				end
-			end,
 			["ctrl-h"] = function()
 				M.show_sound_banks(nil, data) -- Go back to sound banks
 			end,
@@ -98,13 +67,7 @@ end
 
 function M.show_sound_banks()
 	local data = loader.load_dirt_samples()
-	-- Check GHCI dependency only if necessary, not during UI display
 	if not data then
-		local errors = process.check_dependencies()
-		if #errors > 0 then
-			vim.notify("Prerequisites missing:\n- " .. table.concat(errors, "\n- "), vim.log.levels.ERROR)
-			return
-		end
 	end
 
 	if not data or not data.samps or vim.tbl_isempty(data.samps) then
