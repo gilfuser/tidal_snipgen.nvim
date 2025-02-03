@@ -6,6 +6,43 @@ local loader = require("tidal_snipgen.yaml_loader")
 
 local M = {}
 
+-- Track active prelisten pattern
+local current_pattern = nil
+
+local function prelisten_sample(sample_name)
+	-- Generate pattern name with simple 't' prefix
+	local pattern_name = "t" .. sample_name
+	local play_message = string.format('p "%s" $ "%s" # orbit 7', pattern_name, sample_name)
+	local silence_message = string.format('p "%s" silence', pattern_name)
+
+	vim.schedule(function()
+		-- Silence previous pattern immediately
+		if current_pattern then
+			local prev_silence = string.format('p "%s" silence', current_pattern)
+			local silence_cmd =
+				vim.api.nvim_replace_termcodes(":TidalSend1 " .. prev_silence .. "<CR>", true, true, true)
+			vim.api.nvim_feedkeys(silence_cmd, "n", false)
+		end
+
+		-- Update current pattern reference
+		current_pattern = pattern_name
+
+		-- Send new play command
+		local play_cmd = vim.api.nvim_replace_termcodes(":TidalSend1 " .. play_message .. "<CR>", true, true, true)
+		vim.api.nvim_feedkeys(play_cmd, "n", false)
+
+		-- Schedule auto-silence
+		vim.defer_fn(function()
+			if current_pattern == pattern_name then
+				local auto_silence_cmd =
+					vim.api.nvim_replace_termcodes(":TidalSend1 " .. silence_message .. "<CR>", true, true, true)
+				vim.api.nvim_feedkeys(auto_silence_cmd, "n", false)
+				current_pattern = nil
+			end
+		end, 16000)
+	end)
+end
+
 local function display_samples(data, sound_bank)
 	local bank_data = data[sound_bank]
 	if not bank_data then
@@ -48,6 +85,13 @@ local function display_samples(data, sound_bank)
 				local sample_name = selected[1]:match("^(%S+):")
 				if sample_name then
 					vim.api.nvim_put({ sample_name .. " " }, "c", true, true)
+				end
+			end,
+			["ctrl-s"] = function(selected)
+				-- Extract the sample name up to the colon
+				local sample_name = selected[1]:match("^(%S+):")
+				if sample_name then
+					prelisten_sample(sample_name)
 				end
 			end,
 			["ctrl-h"] = function()
