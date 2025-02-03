@@ -4,8 +4,31 @@ local fzf_lua = require("fzf-lua")
 local fzf_actions = require("fzf-lua.actions")
 local process = require("tidal_snipgen.process")
 local loader = require("tidal_snipgen.yaml_loader")
+local vim = vim -- is this really necessary?
 
 local M = {}
+
+local function send_to_tidal(message)
+	if vim.g.tidal_running then
+		vim.fn.system('tmux send-keys -t tidal:0.0 "' .. message .. '" Enter')
+	else
+		vim.notify("Tidal is not running", vim.log.levels.WARNING)
+	end
+end
+
+-- Function to prelisten a sample in Tidal Cycles
+local function prelisten_sample(sample_name)
+	local play_message = 'p "monitor" $ "' .. sample_name .. '" # orbit 15'
+	local silence_message = 'p "monitor" silence'
+
+	-- Send the play message
+	send_to_tidal(play_message)
+
+	-- Set a timer to send the silence message after 4 seconds
+	vim.defer_fn(function()
+		send_to_tidal(silence_message)
+	end, 4000)
+end
 
 local function display_samples(data, sound_bank)
 	local bank_data = data[sound_bank]
@@ -49,6 +72,13 @@ local function display_samples(data, sound_bank)
 				local sample_name = selected[1]:match("^(%S+):")
 				if sample_name then
 					vim.api.nvim_put({ sample_name .. " " }, "c", true, true)
+				end
+			end,
+			["ctrl-s"] = function(selected)
+				-- Extract the sample name up to the colon
+				local sample_name = selected[1]:match("^(%S+):")
+				if sample_name then
+					prelisten_sample(sample_name)
 				end
 			end,
 			["ctrl-h"] = function()
