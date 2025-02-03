@@ -29,11 +29,6 @@ function M.setup(user_config)
 	config.setup(user_config)
 	dirman.ensure_temp_dir()
 
-	-- Optional dependency check
-	vim.schedule(function()
-		local process = require("tidal_snipgen.process")
-		process.check_dependencies() -- Just prints warnings if missing
-	end)
 	-- Auto-require generated snippets
 	vim.schedule(function()
 		pcall(require, "assets.snipgen_tidal")
