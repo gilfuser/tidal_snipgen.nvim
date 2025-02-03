@@ -50,7 +50,7 @@ function M.get_platform_default()
 			.. sep
 			.. "SuperCollider"
 			.. sep
-			.. "downloaded_quarks"
+			.. "downloaded-quarks"
 			.. sep
 			.. "Dirt-Samples"
 	elseif vim.fn.has("win32") == 1 then
@@ -74,7 +74,7 @@ function M.get_platform_default()
 			.. sep
 			.. "SuperCollider"
 			.. sep
-			.. "downloaded_quarks"
+			.. "downloaded-quarks"
 			.. sep
 			.. "Dirt-Samples"
 	end

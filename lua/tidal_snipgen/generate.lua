@@ -89,10 +89,18 @@ local function generate_snippets(data)
 	local existing_prefixes = classify_sound_banks(data)
 	local existing_suffixes = classify_sample_names(data, existing_prefixes)
 
+	-- Check if there is only one sound bank
+	local single_sound_bank = nil
+	if #vim.tbl_keys(data) == 1 then
+		for k in pairs(data) do
+			single_sound_bank = k
+		end
+	end
+
 	-- Generate snippets
 	for sound_bank, attributes in pairs(data) do
 		local is_drummachine = attributes.drummachine or false
-		local prefix = existing_prefixes[sound_bank]
+		local prefix = single_sound_bank and "" or existing_prefixes[sound_bank]
 
 		for sample_name, sample_attributes in pairs(attributes) do
 			-- Skip non-sample attributes like `drummachine`

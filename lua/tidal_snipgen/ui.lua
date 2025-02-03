@@ -45,9 +45,10 @@ local function display_samples(data, sound_bank)
 		prompt = "Samples> ",
 		actions = {
 			["default"] = function(selected)
-				local sample_name = selected[1]:match("^(%S+)")
+				-- Extract the sample name up to the colon and add a space
+				local sample_name = selected[1]:match("^(%S+):")
 				if sample_name then
-					vim.api.nvim_put({ sample_name }, "c", true, true)
+					vim.api.nvim_put({ sample_name .. " " }, "c", true, true)
 				end
 			end,
 			["ctrl-h"] = function()
@@ -67,11 +68,13 @@ end
 
 function M.show_sound_banks()
 	local data = loader.load_dirt_samples()
-	local errors = process.check_dependencies()
-
-	if #errors > 0 then
-		vim.notify("Prerequisites missing:\n- " .. table.concat(errors, "\n- "), vim.log.levels.ERROR)
-		return
+	-- Check GHCI dependency only if necessary, not during UI display
+	if not data then
+		local errors = process.check_dependencies()
+		if #errors > 0 then
+			vim.notify("Prerequisites missing:\n- " .. table.concat(errors, "\n- "), vim.log.levels.ERROR)
+			return
+		end
 	end
 
 	if not data or not data.samps or vim.tbl_isempty(data.samps) then
@@ -81,6 +84,15 @@ function M.show_sound_banks()
 		)
 		return
 	end
+
+	-- Check if there is only one sound bank
+	if #vim.tbl_keys(data.samps) == 1 then
+		for sound_bank in pairs(data.samps) do
+			display_samples(data.samps, sound_bank)
+		end
+		return
+	end
+
 	-- Use only the samps data
 	local sound_banks = {}
 	local existing_prefixes = {}
