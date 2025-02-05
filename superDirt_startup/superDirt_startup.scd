@@ -55,8 +55,10 @@ fork{
     }).play.vol_(0.5);
   }.play;
   );
+
 // FIX: *** ERROR: SynthDef dirt_global_wah2 not found
 // "~/SuperCollider/FX/myTidalFx.scd".standardizePath.load;
+
   wait(8);
 "tidal_snipgen.scd".loadRelative;
 "tidal_sg_samp_monitor.scd".loadRelative;
