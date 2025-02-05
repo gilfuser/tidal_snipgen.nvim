@@ -39,7 +39,7 @@ local function prelisten_sample(sample_name)
 				vim.api.nvim_feedkeys(auto_silence_cmd, "n", false)
 				current_pattern = nil
 			end
-		end, 16000)
+ö	end, 16000)
 	end)
 end
 

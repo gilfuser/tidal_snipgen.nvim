@@ -1,0 +1,26 @@
+.
+├── file_tree.txt
+├── LICENSE
+├── lua
+│   └── tidal_snipgen
+│       ├── config.lua
+│       ├── dir_manager.lua
+│       ├── generate.lua
+│       ├── init.lua
+│       ├── parser.lua
+│       ├── paths.lua
+│       ├── trigger_utils.lua
+│       ├── ui.lua
+│       ├── yaml_loader.lua
+│       └── yaml.lua
+├── README.md
+├── sc_scripts
+└── superDirt_startup
+    ├── addedSynthDescs_before_superDirt.scd
+    ├── LICENSE
+    ├── README.md
+    ├── superDirt_startup.scd
+    ├── tidal_sg_samp_monitor.scd
+    └── tidal_snipgen.scd
+
+5 directories, 19 files
