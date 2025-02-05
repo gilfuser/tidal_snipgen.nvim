@@ -1,0 +1,3 @@
+[submodule "sc_scripts/superDirt_startup"]
+	path = sc_scripts/superDirt_startup
+	url = https://github.com/gilfuser/superDirt_startup.git
