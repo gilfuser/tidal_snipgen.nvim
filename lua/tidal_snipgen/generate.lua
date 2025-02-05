@@ -168,19 +168,16 @@ local M = {
 			return
 		end
 
-		-- Generate snippets
 		local snippets = generate_snippets(data)
 
 		-- Ensure the output directory exists
 		local output_file = config.user_config.output_path
-		local assets_dir = vim.fn.fnamemodify(output_file, ":h")
+		local assets_dir = vim.fn.fnamemodify(output_file, ":h") -- Extract directory from file path
 
-		-- Ensure the directory exists
 		if vim.fn.isdirectory(assets_dir) == 0 then
-			vim.fn.mkdir(assets_dir, "p")
+			vim.fn.mkdir(assets_dir, "p", 0755)
 		end
 
-		-- Write to the output file
 		local file = io.open(output_file, "w")
 		if file then
 			file:write(snippets)

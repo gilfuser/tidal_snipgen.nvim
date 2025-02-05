@@ -23,14 +23,15 @@ function M.setup(user_config)
 
 	-- Resolve paths
 	M.default_config.samples_path = paths.resolve_samples_dir()
-	M.default_config.output_path = paths.expand_path("~/.config/nvim/lua/assets/")
+	M.default_config.output_path = paths.expand_path("~/.config/nvim/lua/assets/snipgen_tidal.lua") -- Include filename
 
 	M.user_config = vim.tbl_deep_extend("force", M.default_config, user_config or {})
 
 	-- Validate output_path format
 	if M.user_config.output_path then
-		local sep = package.config:sub(1, 1)
-		M.user_config.output_path = M.user_config.output_path:gsub("[/\\]+$", "") .. sep
+		-- local sep = package.config:sub(1, 1)
+		-- M.user_config.output_path = M.user_config.output_path:gsub("[/\\]+$", "") .. sep
+		M.user_config.output_path = paths.expand_path(M.user_config.output_path)
 	end
 
 	-- Auto-create temp dir on setup
