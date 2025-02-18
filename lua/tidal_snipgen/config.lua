@@ -12,7 +12,7 @@ M.default_config = {
 		height = 0.9,
 		border = "rounded",
 	},
-	auto_discover = true,
+	-- auto_discover = true,
 }
 
 M.user_config = vim.deepcopy(M.default_config)
@@ -23,7 +23,7 @@ function M.setup(user_config)
 
 	-- Resolve paths
 	M.default_config.samples_path = paths.resolve_samples_dir()
-	M.default_config.output_path = paths.expand_path("~/.config/nvim/lua/assets/snipgen_tidal.lua") -- Include filename
+	M.default_config.output_path = paths.expand_path("~/.config/nvim/lua/assets/snipgen_tidal.lua")
 
 	M.user_config = vim.tbl_deep_extend("force", M.default_config, user_config or {})
 
