@@ -30,6 +30,11 @@ Built for seamless integration with:
 - Tidal Cycles environment setup
 - SuperCollider with SuperDirt
 
+#### Optional
+
+- [blink.cmp](https://cmp.saghen.dev/) 👍
+- [nvim-cmp](https://github.com/hrsh7th/nvim-cmp)
+
 ### Using Packer
 
 ```lua
@@ -78,6 +83,9 @@ require('tidal_snipgen').setup({
 
 ### Key Features
 
+- Completion:
+    Livecode faster with snippets completion thanks to LuaSnip and blink.cmp / nvim-cmp
+
 - Path Resolution:
     **samples_path:** Automatically detects Dirt samples directory
     **output_path:** Defaults to ` ~/.config/nvim/lua/assets/snipgen_tidal.lua `
@@ -88,7 +96,7 @@ require('tidal_snipgen').setup({
     Validation of output path format
 
 - UI Layout:
-    Responsive FZF window dimensions
+    Responsive FZF window with samples pre-listen
 
 ## 󰆦 SuperCollider Integration
 
@@ -99,7 +107,7 @@ q = q ? ();
 q.added_synthDescs = q.added_synthDescs ? SynthDescLib.global.synthDescs.keys;
 ```
 
-Don't use `~dirt.loadSoundFiles` or other ways to load sound files. Let the code in provided file `tidal_snipgen.scd` do the samples loading.
+Don't use ` ~dirt.loadSoundFiles ` or other ways to load sound files. Let the code in the provided file `tidal_snipgen.scd` do the samples loading.
 
 The samples monitor (more about that in Usage) have a GUI, where you can configure the output buses and volume. It's in the file `tidal_sg_samp_monitor.scd`. Put it also the SD startup.
 
@@ -123,7 +131,20 @@ fork {
 
 ## Usage
 
+### What is generated in SC and how the .yaml files look like
+
+- find or choose the .yaml files
+- find or choose the directory with samples
+
+### How to open fzf ui and navigate through sound banks and samples
+
+### How to check and use the snippets. The blink ui with some useful options
+
 ### Snippet Patterns
+
+#### sound banks, sample folders, variations
+
+#### drum machines samples collections vs. other kinds of samples collections
 
 #### Sound Samples
 
