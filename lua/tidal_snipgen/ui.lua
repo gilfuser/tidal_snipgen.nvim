@@ -221,6 +221,12 @@ local function safe_fzf_exec(items, opts)
 					local data = items_map[selected[1]]
 					vim.schedule(function()
 						opts.play_action(data.value, data.attrs)
+						-- auto-resume the picker
+						if fzf_win and fzf_win.resume then
+							fzf_win:resume()
+						elseif vim.fn.exists(":FzfLua") == 2 then
+							vim.cmd("FzfLua resume")
+						end
 					end)
 				end
 				return false
