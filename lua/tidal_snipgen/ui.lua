@@ -216,21 +216,38 @@ local function safe_fzf_exec(items, opts)
 				end
 				return false
 			end,
-			[convert_key(fzf_keymaps.play)] = function(selected)
-				if opts.play_action and #selected > 0 then
+			-- 🔥 New Alt-Esc binding:
+			["alt-esc"] = function(selected, _, fzf_win)
+				if opts.play_action and selected and #selected > 0 then
 					local data = items_map[selected[1]]
 					vim.schedule(function()
 						opts.play_action(data.value, data.attrs)
-						-- auto-resume the picker
+						-- picker will hide automatically with "hide" profile
+						-- now resume it:
 						if fzf_win and fzf_win.resume then
 							fzf_win:resume()
-						elseif vim.fn.exists(":FzfLua") == 2 then
+						else
 							vim.cmd("FzfLua resume")
 						end
 					end)
 				end
-				return false
+				return true -- end current picker invocation
 			end,
+			-- [convert_key(fzf_keymaps.play)] = function(selected)
+			-- 	if opts.play_action and #selected > 0 then
+			-- 		local data = items_map[selected[1]]
+			-- 		vim.schedule(function()
+			-- 			opts.play_action(data.value, data.attrs)
+			-- 			-- auto-resume the picker
+			-- 			if fzf_win and fzf_win.resume then
+			-- 				fzf_win:resume()
+			-- 			elseif vim.fn.exists(":FzfLua") == 2 then
+			-- 				vim.cmd("FzfLua resume")
+			-- 			end
+			-- 		end)
+			-- 	end
+			-- 	return false
+			-- end,
 			["default"] = function(selected)
 				if opts.default_action and #selected > 0 then
 					local data = items_map[selected[1]]
