@@ -173,43 +173,75 @@ local function safe_fzf_exec(items, opts)
 		return
 	end
 
+	-- Get layout config with fallbacks
+	local layout = vim.deepcopy(config.user_config.fzf_layout or {})
+	layout.width = layout.width or 0.3
+	layout.height = layout.height or 0.9
+	layout.border = layout.border or "rounded"
+	layout.row = layout.row or 0.1
+	layout.col = layout.col or 1
+
+	-- Calculate absolute positions
+	local win_width = math.floor(vim.o.columns * layout.width)
+	local win_height = math.floor(vim.o.lines * layout.height)
+	local win_row = math.floor(vim.o.lines * layout.row)
+	local win_col = math.floor(vim.o.columns - win_width - 1) -- Right-aligned
+
 	-- Configure FZF options
 	local fzf_opts = {
 		prompt = opts.prompt,
 		winopts = {
-			height = calculate_dynamic_height(#items_str),
-			width = config.user_config.fzf_layout.width,
-			border = config.user_config.fzf_layout.border,
-			-- Critical persistence settings:
+			height = win_height,
+			width = win_width,
+			row = win_row,
+			col = win_col,
+			border = layout.border,
+			title = opts.prompt:gsub(">.*", ""),
 			persistent = true,
-			on_close = function() end, -- Explicit no-op handler
+			focusable = true,
+			relative = "editor",
 		},
-		-- Modified actions to ensure window stays open:
 		actions = {
-			[convert_key(fzf_keymaps.play)] = function(selected, _)
+			[convert_key(fzf_keymaps.play)] = function(selected, fzf_win)
 				if opts.play_action and #selected > 0 then
 					local data = items_map[selected[1]]
-					-- Explicitly keep window open:
 					vim.schedule(function()
 						opts.play_action(data.value, data.attrs)
+						if fzf_win and fzf_win.winid and vim.api.nvim_win_is_valid(fzf_win.winid) then
+							vim.api.nvim_set_current_win(fzf_win.winid)
+						end
 					end)
 				end
-				-- Return nil to prevent default close behavior
 				return nil
 			end,
-			-- Other actions...
+			-- Other actions remain the same...
 		},
-		-- Force keepalive in fzf options:
 		fzf_opts = {
-			["--no-exit-0"] = "", -- Prevent auto-close
+			["--no-exit-0"] = "",
 			["--bind"] = table.concat({
-				string.format("%s:execute-silent(echo -n {1} >/tmp/fzf-selected)+abort", convert_key(fzf_keymaps.play)),
+				string.format(
+					"%s:execute-silent(echo -n {1} >/tmp/fzf-selected)+refresh-preview",
+					convert_key(fzf_keymaps.play)
+				),
 			}, ","),
 		},
 	}
 
-	-- Execute with our persistent settings
-	fzf_lua.fzf_exec(items_str, fzf_opts)
+	-- Debug output to verify config
+	vim.notify(
+		string.format(
+			"FZF Layout: width=%d, height=%d, row=%d, col=%d, border=%s",
+			win_width,
+			win_height,
+			win_row,
+			win_col,
+			layout.border
+		),
+		vim.log.levels.INFO
+	)
+
+	-- Execute with proper config
+	local fzf_win = fzf_lua.fzf_exec(items_str, fzf_opts)
 end
 
 function M.show_sound_banks()
