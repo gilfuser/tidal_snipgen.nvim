@@ -2,6 +2,9 @@ local loader = require("tidal_snipgen.yaml_loader")
 local fzf_lua = require("fzf-lua")
 local config = require("tidal_snipgen.config")
 local M = {}
+local default_fzf_keymaps = { forward = "ctrl-l", backward = "ctrl-h", play = "ctrl-s" }
+local user_fzf_keymaps = config.user_config.keymaps and config.user_config.keymaps.fzf
+local fzf_keymaps = vim.tbl_deep_extend("force", {}, default_fzf_keymaps, user_fzf_keymaps or {})
 
 local function convert_key(key)
 	return key:lower()
@@ -112,6 +115,49 @@ local function safe_fzf_exec(items, opts)
 
 	local dynamic_height = calculate_dynamic_height(#items_str)
 
+	local actions = {
+		[convert_key(fzf_keymaps.forward)] = {
+			fn = create_persistent_action_handler(function(selected)
+				if opts.nav_forward then
+					local data = items_map[selected[1]]
+					opts.nav_forward(data.value, data.attrs)
+				end
+			end),
+			persist = true,
+			silent = true, -- Prevent default handler interference
+		},
+		[convert_key(fzf_keymaps.backward)] = {
+			fn = create_persistent_action_handler(function()
+				if opts.nav_backward then
+					opts.nav_backward()
+				end
+			end),
+			persist = true,
+			silent = true,
+		},
+		[convert_key(fzf_keymaps.play)] = {
+			fn = create_persistent_action_handler(function(selected)
+				if opts.play_action then
+					local data = items_map[selected[1]]
+					opts.play_action(data.value, data.attrs)
+				end
+			end),
+			persist = true,
+			silent = true,
+		},
+		["default"] = {
+			fn = function(selected, _, fzf_win)
+				if opts.default_action and #selected > 0 then
+					local data = items_map[selected[1]]
+					opts.default_action(data.value, data.attrs)
+				end
+				if fzf_win and fzf_win.close then
+					fzf_win:close()
+				end
+			end,
+		},
+	}
+
 	local winopts = vim.tbl_extend("force", {
 		height = dynamic_height,
 		width = config.user_config.fzf_layout.width,
@@ -133,48 +179,6 @@ local function safe_fzf_exec(items, opts)
 		end,
 	})
 end
-local actions = {
-	[convert_key(config.user_config.keymaps.fzf.forward)] = {
-		fn = create_persistent_action_handler(function(selected)
-			if opts.nav_forward then
-				local data = items_map[selected[1]]
-				opts.nav_forward(data.value, data.attrs)
-			end
-		end),
-		persist = true,
-		silent = true, -- Prevent default handler interference
-	},
-	[convert_key(config.user_config.keymaps.fzf.backward)] = {
-		fn = create_persistent_action_handler(function()
-			if opts.nav_backward then
-				opts.nav_backward()
-			end
-		end),
-		persist = true,
-		silent = true,
-	},
-	[convert_key(config.user_config.keymaps.fzf.play)] = {
-		fn = create_persistent_action_handler(function(selected)
-			if opts.play_action then
-				local data = items_map[selected[1]]
-				opts.play_action(data.value, data.attrs)
-			end
-		end),
-		persist = true,
-		silent = true,
-	},
-	["default"] = {
-		fn = function(selected, _, fzf_win)
-			if opts.default_action and #selected > 0 then
-				local data = items_map[selected[1]]
-				opts.default_action(data.value, data.attrs)
-			end
-			if fzf_win and fzf_win.close then
-				fzf_win:close()
-			end
-		end,
-	},
-}
 local function create_items(data, formatter)
 	local items = {}
 	for key, attrs in pairs(data) do
