@@ -158,7 +158,7 @@ local function safe_fzf_exec(items, opts)
 	local items_map = {}
 	local items_str = {}
 
-	-- Build items list and mapping
+	-- Build items list
 	for _, item in ipairs(items) do
 		if item.text and item.value then
 			table.insert(items_str, item.text)
@@ -173,64 +173,42 @@ local function safe_fzf_exec(items, opts)
 		return
 	end
 
-	local dynamic_height = calculate_dynamic_height(#items_str)
-
-	-- FZF-Lua options with persistent behavior
+	-- Configure FZF options
 	local fzf_opts = {
 		prompt = opts.prompt,
 		winopts = {
-			height = dynamic_height,
+			height = calculate_dynamic_height(#items_str),
 			width = config.user_config.fzf_layout.width,
-			row = config.user_config.fzf_layout.row,
-			col = config.user_config.fzf_layout.col,
 			border = config.user_config.fzf_layout.border,
-			title = opts.prompt:gsub(">.*", ""),
-			persistent = true, -- Keep window open after actions
+			-- Critical persistence settings:
+			persistent = true,
+			on_close = function() end, -- Explicit no-op handler
 		},
+		-- Modified actions to ensure window stays open:
 		actions = {
-			-- Forward navigation action
-			[convert_key(fzf_keymaps.forward)] = function(selected, _)
-				if opts.nav_forward and #selected > 0 then
-					local data = items_map[selected[1]]
-					opts.nav_forward(data.value, data.attrs)
-				end
-				return false -- Keep window open
-			end,
-
-			-- Backward navigation action
-			[convert_key(fzf_keymaps.backward)] = function(_, _)
-				if opts.nav_backward then
-					opts.nav_backward()
-				end
-				return false -- Keep window open
-			end,
-
-			-- Play sample action
 			[convert_key(fzf_keymaps.play)] = function(selected, _)
 				if opts.play_action and #selected > 0 then
 					local data = items_map[selected[1]]
-					opts.play_action(data.value, data.attrs)
+					-- Explicitly keep window open:
+					vim.schedule(function()
+						opts.play_action(data.value, data.attrs)
+					end)
 				end
-				return false -- Keep window open
+				-- Return nil to prevent default close behavior
+				return nil
 			end,
-
-			-- Default action (insert text)
-			["default"] = function(selected, _)
-				if opts.default_action and #selected > 0 then
-					local data = items_map[selected[1]]
-					opts.default_action(data.value, data.attrs)
-				end
-				return true -- Close window on default action
-			end,
+			-- Other actions...
 		},
+		-- Force keepalive in fzf options:
 		fzf_opts = {
+			["--no-exit-0"] = "", -- Prevent auto-close
 			["--bind"] = table.concat({
-				string.format("%s:execute-silent(echo -n {1} > /tmp/fzf-selected)", convert_key(fzf_keymaps.play)),
+				string.format("%s:execute-silent(echo -n {1} >/tmp/fzf-selected)+abort", convert_key(fzf_keymaps.play)),
 			}, ","),
 		},
 	}
 
-	-- Execute FZF with our options
+	-- Execute with our persistent settings
 	fzf_lua.fzf_exec(items_str, fzf_opts)
 end
 
