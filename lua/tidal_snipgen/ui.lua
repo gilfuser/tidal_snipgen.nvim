@@ -1,26 +1,82 @@
--- ui.lua
 local loader = require("tidal_snipgen.yaml_loader")
 local fzf_lua = require("fzf-lua")
+local config = require("tidal_snipgen.config")
 local M = {}
+
+local function convert_key(key)
+	return key:lower()
+		:gsub("<c%-", "ctrl-")
+		:gsub("<a%-", "alt-")
+		:gsub("<s%-", "shift-")
+		:gsub("<leader>", "\\")
+		:gsub("[<>]", "")
+end
+
+local function calculate_dynamic_height(items_count)
+	local config = require("tidal_snipgen.config").user_config
+	local term_height = vim.o.lines
+	local padding = 4 -- Space for headers/borders
+	-- Calculate ideal height
+	local height = math.min(
+		items_count + padding, -- Content-based height
+		config.fzf_layout.max_height, -- User maximum
+		term_height - padding -- Terminal limits
+	)
+	return math.max(height, config.fzf_layout.min_height)
+end
+
+local function create_persistent_action_handler(fn)
+	return function(selected, _, fzf_win)
+		-- Safe window continuation with error handling
+		pcall(function()
+			if fzf_win and fzf_win.continue then
+				fzf_win:continue()
+			end
+		end)
+		-- Execute handler and explicitly return false
+		if selected and #selected > 0 then
+			fn(selected)
+		end
+		return false
+	end
+end
 
 local UI_CONFIG = {
 	banks = {
 		prompt = "Sound Banks> ",
-		width = 0.4,
 		formatter = function(bank, attrs)
-			return string.format("%-25s %s", bank, attrs.drummachine and "⚡" or "")
+			return string.format("%-20s %s", bank, attrs.drummachine and "⚡" or "")
 		end,
 	},
 	samples = {
 		prompt = "Samples> ",
-		width = 0.5,
 		formatter = function(sample, attrs)
-			return string.format("%-25s (%3d)", sample, attrs.variations or 0)
+			-- Get duration qualifier if not drummachine
+			local duration = ""
+			if not attrs.drummachine then
+				local durations = {
+					is_shorter = "shorter",
+					is_short = "short",
+					is_long = "long",
+					is_longer = "longer",
+				}
+				for attr, label in pairs(durations) do
+					if attrs[attr] then
+						duration = label
+						break
+					end
+				end
+			end
+			return string.format(
+				"%-10s %4d %10s",
+				sample:sub(1, 25), -- Column 1: Sample name
+				attrs.variations or 0,
+				duration -- Column 2: Duration qualifier
+			) -- Column 3: Variation count
 		end,
 	},
 	variations = {
 		prompt = "Variations> ",
-		width = 0.3,
 		formatter = function(var)
 			return string.format("Variation %02d", var)
 		end,
@@ -52,45 +108,73 @@ local function safe_fzf_exec(items, opts)
 		return
 	end
 
-	fzf_lua.fzf_exec(
-		items_str,
-		vim.tbl_extend("force", {
-			actions = {
-				["default"] = function(selected)
-					if opts.default_action and #selected > 0 then
-						local data = items_map[selected[1]]
-						opts.default_action(data.value, data.attrs)
-					end
-				end,
-				["ctrl-s"] = function(selected)
-					if opts.play_action and #selected > 0 then
-						local data = items_map[selected[1]]
-						opts.play_action(data.value, data.attrs)
-					end
-					return false -- Keep window open
-				end,
-				["ctrl-l"] = function(selected)
-					if opts.nav_action and #selected > 0 then
-						local data = items_map[selected[1]]
-						opts.nav_action(data.value, data.attrs)
-					end
-					return false -- Keep window open
-				end,
-				["ctrl-h"] = function()
-					if opts.back_action then
-						opts.back_action()
-					end
-					return false -- Keep window open
-				end,
-			},
-			winopts = {
-				col = 1, -- Right-aligned
-				border = "rounded",
-			},
-		}, opts or {})
-	)
-end
+	-- Convert keybindings to the correct format
 
+	local dynamic_height = calculate_dynamic_height(#items_str)
+
+	local winopts = vim.tbl_extend("force", {
+		height = dynamic_height,
+		width = config.user_config.fzf_layout.width,
+		row = config.user_config.fzf_layout.row,
+		col = config.user_config.fzf_layout.col,
+		border = config.user_config.fzf_layout.border,
+		title = opts.prompt:gsub(">.*", ""),
+		persistent = true,
+		on_choice = function() end,
+		focusable = false, -- Prevent focus changes
+		noautocmd = true, -- Disable autocmds during creation
+	}, config.user_config.fzf_layout)
+
+	fzf_lua.fzf_exec(items_str, {
+		actions = actions,
+		winopts = winopts,
+		__fn_transform = function(x)
+			return x
+		end,
+	})
+end
+local actions = {
+	[convert_key(config.user_config.keymaps.fzf.forward)] = {
+		fn = create_persistent_action_handler(function(selected)
+			if opts.nav_forward then
+				local data = items_map[selected[1]]
+				opts.nav_forward(data.value, data.attrs)
+			end
+		end),
+		persist = true,
+		silent = true, -- Prevent default handler interference
+	},
+	[convert_key(config.user_config.keymaps.fzf.backward)] = {
+		fn = create_persistent_action_handler(function()
+			if opts.nav_backward then
+				opts.nav_backward()
+			end
+		end),
+		persist = true,
+		silent = true,
+	},
+	[convert_key(config.user_config.keymaps.fzf.play)] = {
+		fn = create_persistent_action_handler(function(selected)
+			if opts.play_action then
+				local data = items_map[selected[1]]
+				opts.play_action(data.value, data.attrs)
+			end
+		end),
+		persist = true,
+		silent = true,
+	},
+	["default"] = {
+		fn = function(selected, _, fzf_win)
+			if opts.default_action and #selected > 0 then
+				local data = items_map[selected[1]]
+				opts.default_action(data.value, data.attrs)
+			end
+			if fzf_win and fzf_win.close then
+				fzf_win:close()
+			end
+		end,
+	},
+}
 local function create_items(data, formatter)
 	local items = {}
 	for key, attrs in pairs(data) do
@@ -108,30 +192,52 @@ local function create_items(data, formatter)
 	return items
 end
 
-local function tidal_send(cmd)
+--[[ local function tidal_send(cmd)
 	vim.schedule(function()
 		vim.cmd("TidalSend1 " .. vim.api.nvim_replace_termcodes(cmd, true, true, true))
 	end)
-end
+end ]]
+
+local current_pattern = nil -- Track currently playing pattern
 
 local function silence_sample()
-	if current_context.pattern_name then
-		tidal_send('p "' .. current_context.pattern_name .. '" silence')
-		current_context.pattern_name = nil
+	if current_pattern then
+		local silence_cmd = string.format('p "%s" silence', current_pattern)
+		-- Use native Neovim scheduling
+		vim.schedule(function()
+			vim.cmd.TidalSend1(silence_cmd)
+		end)
+		current_pattern = nil
 	end
 end
 
 local function play_sample(variation)
 	silence_sample()
-	current_context.pattern_name = current_context.sample
+	-- Generate unique pattern name
+
+	current_pattern = string.format("%s_%s_%d", current_context.bank or "global", current_context.sample, os.time())
+
+	-- Create command using proper bank/sample format
 	local cmd = string.format(
-		'p "%s" $ s "%s:%s" # n %d # orbit 7',
-		current_context.pattern_name,
-		current_context.bank,
+		'p "%s" $ s "%s" # n %d # orbit %d',
+		current_pattern,
 		current_context.sample,
-		variation or 0
+		variation or 0,
+		config.user_config.monitor_orbit
 	)
-	tidal_send(cmd)
+
+	-- Send command without triggering focus events
+	vim.schedule(function()
+		vim.cmd("noautocmd TidalSend1 " .. vim.api.nvim_replace_termcodes(cmd, true, true, true))
+	end)
+	-- Auto-silence using Neovim's defer
+	local pattern_name = current_pattern
+	vim.defer_fn(function()
+		if current_pattern == pattern_name then
+			silence_sample()
+			current_pattern = nil
+		end
+	end, 16000)
 end
 
 function M.show_sound_banks()
@@ -139,15 +245,22 @@ function M.show_sound_banks()
 	if not current_context.data or not current_context.data.samps then
 		return
 	end
-
+	local bank_keys = vim.tbl_keys(current_context.data.samps)
+	if #bank_keys == 1 then
+		current_context.bank = bank_keys[1]
+		M.show_samples()
+		return
+	end
 	local items = create_items(current_context.data.samps, UI_CONFIG.banks.formatter)
 
 	safe_fzf_exec(items, {
 		prompt = UI_CONFIG.banks.prompt,
-		winopts = { height = 0.9, width = UI_CONFIG.banks.width, row = 0.1 },
-		default_action = function(value)
+		nav_forward = function(value)
 			current_context.bank = value
 			M.show_samples()
+		end,
+		default_action = function(value)
+			vim.api.nvim_put({ value .. " " }, "c", true, true)
 		end,
 	})
 end
@@ -157,28 +270,46 @@ function M.show_samples()
 		return
 	end
 	local bank_data = current_context.data.samps[current_context.bank] or {}
+	local is_drummachine = bank_data.drummachine or false
+	local items = {}
+	for sample_name, sample_attrs in pairs(bank_data) do
+		if type(sample_attrs) == "table" and sample_name ~= "drummachine" then
+			-- Add drummachine status to sample attributes
+			local attrs = vim.tbl_extend("keep", sample_attrs, {
+				drummachine = is_drummachine,
+			})
 
-	local items = create_items(bank_data, UI_CONFIG.samples.formatter)
-
+			table.insert(items, {
+				text = UI_CONFIG.samples.formatter(sample_name, attrs),
+				value = sample_name,
+				attrs = attrs,
+			})
+		end
+	end
 	safe_fzf_exec(items, {
 		prompt = UI_CONFIG.samples.prompt,
-		winopts = { height = 0.9, width = UI_CONFIG.samples.width, row = 0.1 },
-		default_action = function(value)
-			vim.api.nvim_put({ value .. " " }, "c", true, true)
-		end,
-		play_action = function(value, attrs)
-			current_context.sample = value
-			play_sample(0)
-		end,
-		nav_action = function(value, attrs)
+		nav_forward = function(value, attrs)
 			current_context.sample = value
 			if (attrs.variations or 0) > 1 then
 				M.show_variations()
 			else
 				play_sample(0)
 			end
+			return false
 		end,
-		back_action = M.show_sound_banks,
+		nav_backward = M.show_sound_banks,
+		play_action = function(value)
+			current_context.sample = value
+			play_sample(0)
+			return false -- Explicit return
+		end,
+		default_action = function(value)
+			local insert = current_context.sample
+			if value > 0 then
+				insert = insert .. ":" .. value
+			end
+			vim.api.nvim_put({ insert .. " " }, "c", true, true)
+		end,
 	})
 end
 
@@ -199,18 +330,19 @@ function M.show_variations()
 
 	safe_fzf_exec(items, {
 		prompt = UI_CONFIG.variations.prompt,
-		winopts = { height = 0.6, width = UI_CONFIG.variations.width, row = 0.2 },
+		nav_backward = M.show_samples,
+		play_action = function(value)
+			play_sample(value)
+			return false
+		end,
 		default_action = function(value)
 			local insert = current_context.sample
 			if value > 0 then
 				insert = insert .. ":" .. value
 			end
 			vim.api.nvim_put({ insert .. " " }, "c", true, true)
+			return false
 		end,
-		play_action = function(value)
-			play_sample(value)
-		end,
-		back_action = M.show_samples,
 	})
 end
 
