@@ -217,24 +217,20 @@ end
 
 local function play_sample(variation)
 	silence_sample()
-	-- Generate unique pattern name
+	local bank = current_context.bank or "default_bank"
+	local sample = current_context.sample or "sample"
+	local var = tonumber(variation) or 0
+	local monitor_orbit = tonumber(config.user_config.monitor_orbit) or 6
+	current_pattern = string.format("%s_%s_%d", bank, sample, os.time())
 
-	current_pattern = string.format("%s_%s_%d", current_context.bank or "global", current_context.sample, os.time())
+	-- Optional: debug print to catch future nils
+	-- print("bank:", bank, "sample:", sample, "var:", var, "monitor_orbit:", monitor_orbit)
 
-	-- Create command using proper bank/sample format
-	local cmd = string.format(
-		'p "%s" $ s "%s" # n %d # orbit %d',
-		current_pattern,
-		current_context.sample,
-		variation or 0,
-		config.user_config.monitor_orbit
-	)
-
-	-- Send command without triggering focus events
+	local cmd = string.format('p "%s" $ s "%s" # n %d # orbit %d', current_pattern, sample, var, monitor_orbit)
 	vim.schedule(function()
 		vim.cmd("noautocmd TidalSend1 " .. vim.api.nvim_replace_termcodes(cmd, true, true, true))
 	end)
-	-- Auto-silence using Neovim's defer
+	-- Optionally, your auto-silence logic
 	local pattern_name = current_pattern
 	vim.defer_fn(function()
 		if current_pattern == pattern_name then
