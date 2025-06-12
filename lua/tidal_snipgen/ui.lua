@@ -158,7 +158,7 @@ local function safe_fzf_exec(items, opts)
 	local items_map = {}
 	local items_str = {}
 
-	-- Build items list and mapping
+	-- Build items list
 	for _, item in ipairs(items) do
 		if item.text and item.value then
 			table.insert(items_str, item.text)
@@ -173,21 +173,14 @@ local function safe_fzf_exec(items, opts)
 		return
 	end
 
-	-- Get layout config with fallbacks
-	local layout = vim.deepcopy(config.user_config.fzf_layout or {})
-	layout.width = layout.width or 0.3
-	layout.height = layout.height or 0.9
-	layout.border = layout.border or "rounded"
-	layout.row = layout.row or 0.1
-	layout.col = layout.col or 1
-
-	-- Calculate absolute positions (right-aligned)
+	-- Get layout config
+	local layout = config.user_config.fzf_layout
 	local win_width = math.floor(vim.o.columns * layout.width)
 	local win_height = math.floor(vim.o.lines * layout.height)
 	local win_row = math.floor(vim.o.lines * layout.row)
-	local win_col = math.floor(vim.o.columns - win_width - 1)
+	local win_col = math.floor(vim.o.columns - win_width - 1) -- Right-aligned
 
-	-- Configure FZF options with all keybindings
+	-- Configure FZF options
 	local fzf_opts = {
 		prompt = opts.prompt,
 		winopts = {
@@ -197,86 +190,56 @@ local function safe_fzf_exec(items, opts)
 			col = win_col,
 			border = layout.border,
 			title = opts.prompt:gsub(">.*", ""),
-			persistent = true,
-			focusable = true,
-			relative = "editor",
+			persistent = true, -- Keep window open
+			focusable = true, -- Allow interaction
 		},
 		actions = {
 			-- Forward navigation (Ctrl-l)
-			[convert_key(fzf_keymaps.forward)] = function(selected, fzf_win)
+			[convert_key(fzf_keymaps.forward)] = function(selected)
 				if opts.nav_forward and #selected > 0 then
 					local data = items_map[selected[1]]
-					vim.schedule(function()
-						opts.nav_forward(data.value, data.attrs)
-						if fzf_win and fzf_win.winid and vim.api.nvim_win_is_valid(fzf_win.winid) then
-							vim.api.nvim_set_current_win(fzf_win.winid)
-						end
-					end)
+					opts.nav_forward(data.value, data.attrs)
 				end
 				return false -- Keep window open
 			end,
 
 			-- Backward navigation (Ctrl-h)
-			[convert_key(fzf_keymaps.backward)] = function(_, fzf_win)
+			[convert_key(fzf_keymaps.backward)] = function()
 				if opts.nav_backward then
-					vim.schedule(function()
-						opts.nav_backward()
-						if fzf_win and fzf_win.winid and vim.api.nvim_win_is_valid(fzf_win.winid) then
-							vim.api.nvim_set_current_win(fzf_win.winid)
-						end
-					end)
+					opts.nav_backward()
 				end
 				return false -- Keep window open
 			end,
 
-			-- Play sample (Ctrl-s)
-			[convert_key(fzf_keymaps.play)] = function(selected, fzf_win)
+			-- Play sample (Ctrl-s) - THE CRITICAL FIX
+			[convert_key(fzf_keymaps.play)] = function(selected)
 				if opts.play_action and #selected > 0 then
 					local data = items_map[selected[1]]
+					-- Async play that doesn't affect UI
 					vim.schedule(function()
 						opts.play_action(data.value, data.attrs)
-						if fzf_win and fzf_win.winid and vim.api.nvim_win_is_valid(fzf_win.winid) then
-							vim.api.nvim_set_current_win(fzf_win.winid)
-						end
 					end)
 				end
-				return false -- Keep window open
+				return false -- Explicitly keep window open
 			end,
 
 			-- Default action (Enter)
-			["default"] = function(selected, _)
+			["default"] = function(selected)
 				if opts.default_action and #selected > 0 then
 					local data = items_map[selected[1]]
 					opts.default_action(data.value, data.attrs)
 				end
-				return true -- Close window on default action
+				return true -- Close window only on default action
 			end,
 		},
+		-- FZF options to prevent auto-closing
 		fzf_opts = {
-			["--no-exit-0"] = "", -- Prevent auto-close
-			["--bind"] = table.concat({
-				string.format(
-					"%s:execute-silent(echo -n {1} >/tmp/fzf-selected)+refresh-preview",
-					convert_key(fzf_keymaps.play)
-				),
-				"ctrl-c:abort",
-			}, ","),
+			["--no-exit-0"] = "", -- Prevent FZF from closing
 		},
 	}
 
-	-- Debug output for keybindings
-	vim.notify(
-		string.format(
-			"Active Keybinds: Forward=%s, Back=%s, Play=%s",
-			convert_key(fzf_keymaps.forward),
-			convert_key(fzf_keymaps.backward),
-			convert_key(fzf_keymaps.play)
-		),
-		vim.log.levels.INFO
-	)
-
-	-- Execute FZF with all configured options
-	local fzf_win = fzf_lua.fzf_exec(items_str, fzf_opts)
+	-- Execute FZF
+	fzf_lua.fzf_exec(items_str, fzf_opts)
 end
 
 function M.show_sound_banks()
