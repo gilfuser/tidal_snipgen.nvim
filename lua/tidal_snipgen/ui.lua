@@ -173,12 +173,20 @@ local function safe_fzf_exec(items, opts)
 		return
 	end
 
-	-- Get layout config
-	local layout = config.user_config.fzf_layout
+	-- Get layout config with proper fallbacks
+	local layout = {
+		width = config.user_config.fzf_layout.width or 0.3,
+		height = config.user_config.fzf_layout.height or 0.9,
+		border = config.user_config.fzf_layout.border or "rounded",
+		row = config.user_config.fzf_layout.row or 0.1,
+		col = config.user_config.fzf_layout.col or 1,
+	}
+
+	-- Calculate absolute positions (right-aligned)
 	local win_width = math.floor(vim.o.columns * layout.width)
 	local win_height = math.floor(vim.o.lines * layout.height)
 	local win_row = math.floor(vim.o.lines * layout.row)
-	local win_col = math.floor(vim.o.columns - win_width - 1) -- Right-aligned
+	local win_col = math.floor(vim.o.columns - win_width - 1)
 
 	-- Configure FZF options
 	local fzf_opts = {
@@ -190,55 +198,46 @@ local function safe_fzf_exec(items, opts)
 			col = win_col,
 			border = layout.border,
 			title = opts.prompt:gsub(">.*", ""),
-			persistent = true, -- Keep window open
-			focusable = true, -- Allow interaction
+			persistent = true,
+			focusable = true,
+			relative = "editor",
 		},
 		actions = {
-			-- Forward navigation (Ctrl-l)
 			[convert_key(fzf_keymaps.forward)] = function(selected)
 				if opts.nav_forward and #selected > 0 then
 					local data = items_map[selected[1]]
 					opts.nav_forward(data.value, data.attrs)
 				end
-				return false -- Keep window open
+				return false
 			end,
-
-			-- Backward navigation (Ctrl-h)
 			[convert_key(fzf_keymaps.backward)] = function()
 				if opts.nav_backward then
 					opts.nav_backward()
 				end
-				return false -- Keep window open
+				return false
 			end,
-
-			-- Play sample (Ctrl-s) - THE CRITICAL FIX
 			[convert_key(fzf_keymaps.play)] = function(selected)
 				if opts.play_action and #selected > 0 then
 					local data = items_map[selected[1]]
-					-- Async play that doesn't affect UI
 					vim.schedule(function()
 						opts.play_action(data.value, data.attrs)
 					end)
 				end
-				return false -- Explicitly keep window open
+				return false
 			end,
-
-			-- Default action (Enter)
 			["default"] = function(selected)
 				if opts.default_action and #selected > 0 then
 					local data = items_map[selected[1]]
 					opts.default_action(data.value, data.attrs)
 				end
-				return true -- Close window only on default action
+				return true
 			end,
 		},
-		-- FZF options to prevent auto-closing
 		fzf_opts = {
-			["--no-exit-0"] = "", -- Prevent FZF from closing
+			["--no-exit-0"] = "",
 		},
 	}
 
-	-- Execute FZF
 	fzf_lua.fzf_exec(items_str, fzf_opts)
 end
 
