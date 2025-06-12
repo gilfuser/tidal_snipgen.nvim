@@ -154,6 +154,86 @@ local function play_sample(variation)
 	end, 16000)
 end
 
+local function safe_fzf_exec(items, opts)
+	local items_map = {}
+	local items_str = {}
+
+	-- Build items list and mapping
+	for _, item in ipairs(items) do
+		if item.text and item.value then
+			table.insert(items_str, item.text)
+			items_map[item.text] = {
+				value = item.value,
+				attrs = item.attrs,
+			}
+		end
+	end
+
+	if #items_str == 0 then
+		return
+	end
+
+	local dynamic_height = calculate_dynamic_height(#items_str)
+
+	-- FZF-Lua options with persistent behavior
+	local fzf_opts = {
+		prompt = opts.prompt,
+		winopts = {
+			height = dynamic_height,
+			width = config.user_config.fzf_layout.width,
+			row = config.user_config.fzf_layout.row,
+			col = config.user_config.fzf_layout.col,
+			border = config.user_config.fzf_layout.border,
+			title = opts.prompt:gsub(">.*", ""),
+			persistent = true, -- Keep window open after actions
+		},
+		actions = {
+			-- Forward navigation action
+			[convert_key(fzf_keymaps.forward)] = function(selected, _)
+				if opts.nav_forward and #selected > 0 then
+					local data = items_map[selected[1]]
+					opts.nav_forward(data.value, data.attrs)
+				end
+				return false -- Keep window open
+			end,
+
+			-- Backward navigation action
+			[convert_key(fzf_keymaps.backward)] = function(_, _)
+				if opts.nav_backward then
+					opts.nav_backward()
+				end
+				return false -- Keep window open
+			end,
+
+			-- Play sample action
+			[convert_key(fzf_keymaps.play)] = function(selected, _)
+				if opts.play_action and #selected > 0 then
+					local data = items_map[selected[1]]
+					opts.play_action(data.value, data.attrs)
+				end
+				return false -- Keep window open
+			end,
+
+			-- Default action (insert text)
+			["default"] = function(selected, _)
+				if opts.default_action and #selected > 0 then
+					local data = items_map[selected[1]]
+					opts.default_action(data.value, data.attrs)
+				end
+				return true -- Close window on default action
+			end,
+		},
+		fzf_opts = {
+			["--bind"] = table.concat({
+				string.format("%s:execute-silent(echo -n {1} > /tmp/fzf-selected)", convert_key(fzf_keymaps.play)),
+			}, ","),
+		},
+	}
+
+	-- Execute FZF with our options
+	fzf_lua.fzf_exec(items_str, fzf_opts)
+end
+
 function M.show_sound_banks()
 	current_context.data = loader.load_dirt_samples()
 	if not current_context.data or not current_context.data.samps then
@@ -164,86 +244,6 @@ function M.show_sound_banks()
 		current_context.bank = bank_keys[1]
 		M.show_samples()
 		return
-	end
-
-	local function safe_fzf_exec(items, opts)
-		local items_map = {}
-		local items_str = {}
-
-		-- Build items list and mapping
-		for _, item in ipairs(items) do
-			if item.text and item.value then
-				table.insert(items_str, item.text)
-				items_map[item.text] = {
-					value = item.value,
-					attrs = item.attrs,
-				}
-			end
-		end
-
-		if #items_str == 0 then
-			return
-		end
-
-		local dynamic_height = calculate_dynamic_height(#items_str)
-
-		-- FZF-Lua options with persistent behavior
-		local fzf_opts = {
-			prompt = opts.prompt,
-			winopts = {
-				height = dynamic_height,
-				width = config.user_config.fzf_layout.width,
-				row = config.user_config.fzf_layout.row,
-				col = config.user_config.fzf_layout.col,
-				border = config.user_config.fzf_layout.border,
-				title = opts.prompt:gsub(">.*", ""),
-				persistent = true, -- Keep window open after actions
-			},
-			actions = {
-				-- Forward navigation action
-				[convert_key(fzf_keymaps.forward)] = function(selected, _)
-					if opts.nav_forward and #selected > 0 then
-						local data = items_map[selected[1]]
-						opts.nav_forward(data.value, data.attrs)
-					end
-					return false -- Keep window open
-				end,
-
-				-- Backward navigation action
-				[convert_key(fzf_keymaps.backward)] = function(_, _)
-					if opts.nav_backward then
-						opts.nav_backward()
-					end
-					return false -- Keep window open
-				end,
-
-				-- Play sample action
-				[convert_key(fzf_keymaps.play)] = function(selected, _)
-					if opts.play_action and #selected > 0 then
-						local data = items_map[selected[1]]
-						opts.play_action(data.value, data.attrs)
-					end
-					return false -- Keep window open
-				end,
-
-				-- Default action (insert text)
-				["default"] = function(selected, _)
-					if opts.default_action and #selected > 0 then
-						local data = items_map[selected[1]]
-						opts.default_action(data.value, data.attrs)
-					end
-					return true -- Close window on default action
-				end,
-			},
-			fzf_opts = {
-				["--bind"] = table.concat({
-					string.format("%s:execute-silent(echo -n {1} > /tmp/fzf-selected)", convert_key(fzf_keymaps.play)),
-				}, ","),
-			},
-		}
-
-		-- Execute FZF with our options
-		fzf_lua.fzf_exec(items_str, fzf_opts)
 	end
 
 	local items = create_items(current_context.data.samps, UI_CONFIG.banks.formatter)
