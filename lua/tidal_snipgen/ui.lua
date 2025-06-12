@@ -111,74 +111,64 @@ local function safe_fzf_exec(items, opts)
 		return
 	end
 
-	-- Convert keybindings to the correct format
-
 	local dynamic_height = calculate_dynamic_height(#items_str)
 
-	local actions = {
-		[convert_key(fzf_keymaps.forward)] = {
-			fn = create_persistent_action_handler(function(selected)
-				if opts.nav_forward then
+	-- Create FZF options with persistent behavior
+	local fzf_opts = {
+		prompt = opts.prompt,
+		winopts = {
+			height = dynamic_height,
+			width = config.user_config.fzf_layout.width,
+			row = config.user_config.fzf_layout.row,
+			col = config.user_config.fzf_layout.col,
+			border = config.user_config.fzf_layout.border,
+			title = opts.prompt:gsub(">.*", ""),
+			persistent = true, -- Keep window open after selection
+		},
+		actions = {
+			-- Forward navigation
+			[convert_key(fzf_keymaps.forward)] = function(selected, _)
+				if opts.nav_forward and #selected > 0 then
 					local data = items_map[selected[1]]
 					opts.nav_forward(data.value, data.attrs)
 				end
-			end),
-			persist = true,
-			silent = true, -- Prevent default handler interference
-		},
-		[convert_key(fzf_keymaps.backward)] = {
-			fn = create_persistent_action_handler(function()
+				return false -- Keep window open
+			end,
+			-- Backward navigation
+			[convert_key(fzf_keymaps.backward)] = function(_, _)
 				if opts.nav_backward then
 					opts.nav_backward()
 				end
-			end),
-			persist = true,
-			silent = true,
-		},
-		[convert_key(fzf_keymaps.play)] = {
-			fn = create_persistent_action_handler(function(selected)
-				if opts.play_action then
+				return false -- Keep window open
+			end,
+			-- Play sample
+			[convert_key(fzf_keymaps.play)] = function(selected, _)
+				if opts.play_action and #selected > 0 then
 					local data = items_map[selected[1]]
 					opts.play_action(data.value, data.attrs)
 				end
-			end),
-			persist = true,
-			silent = true,
-		},
-		["default"] = {
-			fn = function(selected, _, fzf_win)
+				return false -- Keep window open
+			end,
+			-- Default action (insert text)
+			["default"] = function(selected, _)
 				if opts.default_action and #selected > 0 then
 					local data = items_map[selected[1]]
 					opts.default_action(data.value, data.attrs)
 				end
-				if fzf_win and fzf_win.close then
-					fzf_win:close()
-				end
+				return true -- Close window on default action
 			end,
+		},
+		fzf_opts = {
+			["--bind"] = table.concat({
+				string.format("%s:execute-silent(echo -n {1} > /tmp/fzf-selected)", convert_key(fzf_keymaps.play)),
+			}, ","),
 		},
 	}
 
-	local winopts = vim.tbl_extend("force", {
-		height = dynamic_height,
-		width = config.user_config.fzf_layout.width,
-		row = config.user_config.fzf_layout.row,
-		col = config.user_config.fzf_layout.col,
-		border = config.user_config.fzf_layout.border,
-		title = opts.prompt:gsub(">.*", ""),
-		persistent = true,
-		on_choice = function() end,
-		focusable = false, -- Prevent focus changes
-		noautocmd = true, -- Disable autocmds during creation
-	}, config.user_config.fzf_layout)
-
-	fzf_lua.fzf_exec(items_str, {
-		actions = actions,
-		winopts = winopts,
-		__fn_transform = function(x)
-			return x
-		end,
-	})
+	-- Execute FZF with our options
+	fzf_lua.fzf_exec(items_str, fzf_opts)
 end
+
 local function create_items(data, formatter)
 	local items = {}
 	for key, attrs in pairs(data) do
@@ -286,6 +276,7 @@ function M.show_samples()
 			})
 		end
 	end
+
 	safe_fzf_exec(items, {
 		prompt = UI_CONFIG.samples.prompt,
 		nav_forward = function(value, attrs)
