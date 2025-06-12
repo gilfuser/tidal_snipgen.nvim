@@ -158,7 +158,7 @@ local function safe_fzf_exec(items, opts)
 	local items_map = {}
 	local items_str = {}
 
-	-- Build items list
+	-- Build items list and mapping
 	for _, item in ipairs(items) do
 		if item.text and item.value then
 			table.insert(items_str, item.text)
@@ -181,13 +181,13 @@ local function safe_fzf_exec(items, opts)
 	layout.row = layout.row or 0.1
 	layout.col = layout.col or 1
 
-	-- Calculate absolute positions
+	-- Calculate absolute positions (right-aligned)
 	local win_width = math.floor(vim.o.columns * layout.width)
 	local win_height = math.floor(vim.o.lines * layout.height)
 	local win_row = math.floor(vim.o.lines * layout.row)
-	local win_col = math.floor(vim.o.columns - win_width - 1) -- Right-aligned
+	local win_col = math.floor(vim.o.columns - win_width - 1)
 
-	-- Configure FZF options
+	-- Configure FZF options with all keybindings
 	local fzf_opts = {
 		prompt = opts.prompt,
 		winopts = {
@@ -202,6 +202,34 @@ local function safe_fzf_exec(items, opts)
 			relative = "editor",
 		},
 		actions = {
+			-- Forward navigation (Ctrl-l)
+			[convert_key(fzf_keymaps.forward)] = function(selected, fzf_win)
+				if opts.nav_forward and #selected > 0 then
+					local data = items_map[selected[1]]
+					vim.schedule(function()
+						opts.nav_forward(data.value, data.attrs)
+						if fzf_win and fzf_win.winid and vim.api.nvim_win_is_valid(fzf_win.winid) then
+							vim.api.nvim_set_current_win(fzf_win.winid)
+						end
+					end)
+				end
+				return false -- Keep window open
+			end,
+
+			-- Backward navigation (Ctrl-h)
+			[convert_key(fzf_keymaps.backward)] = function(_, fzf_win)
+				if opts.nav_backward then
+					vim.schedule(function()
+						opts.nav_backward()
+						if fzf_win and fzf_win.winid and vim.api.nvim_win_is_valid(fzf_win.winid) then
+							vim.api.nvim_set_current_win(fzf_win.winid)
+						end
+					end)
+				end
+				return false -- Keep window open
+			end,
+
+			-- Play sample (Ctrl-s)
 			[convert_key(fzf_keymaps.play)] = function(selected, fzf_win)
 				if opts.play_action and #selected > 0 then
 					local data = items_map[selected[1]]
@@ -212,35 +240,42 @@ local function safe_fzf_exec(items, opts)
 						end
 					end)
 				end
-				return nil
+				return false -- Keep window open
 			end,
-			-- Other actions remain the same...
+
+			-- Default action (Enter)
+			["default"] = function(selected, _)
+				if opts.default_action and #selected > 0 then
+					local data = items_map[selected[1]]
+					opts.default_action(data.value, data.attrs)
+				end
+				return true -- Close window on default action
+			end,
 		},
 		fzf_opts = {
-			["--no-exit-0"] = "",
+			["--no-exit-0"] = "", -- Prevent auto-close
 			["--bind"] = table.concat({
 				string.format(
 					"%s:execute-silent(echo -n {1} >/tmp/fzf-selected)+refresh-preview",
 					convert_key(fzf_keymaps.play)
 				),
+				"ctrl-c:abort",
 			}, ","),
 		},
 	}
 
-	-- Debug output to verify config
+	-- Debug output for keybindings
 	vim.notify(
 		string.format(
-			"FZF Layout: width=%d, height=%d, row=%d, col=%d, border=%s",
-			win_width,
-			win_height,
-			win_row,
-			win_col,
-			layout.border
+			"Active Keybinds: Forward=%s, Back=%s, Play=%s",
+			convert_key(fzf_keymaps.forward),
+			convert_key(fzf_keymaps.backward),
+			convert_key(fzf_keymaps.play)
 		),
 		vim.log.levels.INFO
 	)
 
-	-- Execute with proper config
+	-- Execute FZF with all configured options
 	local fzf_win = fzf_lua.fzf_exec(items_str, fzf_opts)
 end
 
