@@ -139,7 +139,7 @@ local function play_sample(variation)
 
 	-- Optional: debug print to catch future nils
 	-- print("bank:", bank, "sample:", sample, "var:", var, "monitor_orbit:", monitor_orbit)
-
+	-- TODO: play sample name todas as variantes. slow <n de variantes> $ # n (run <n de variantes) # s <sample name> # legato 1
 	local cmd = string.format('p "%s" $ s "%s" # n %d # orbit %d', current_pattern, sample, var, monitor_orbit)
 	vim.schedule(function()
 		vim.cmd("noautocmd TidalSend1 " .. vim.api.nvim_replace_termcodes(cmd, true, true, true))
@@ -216,38 +216,21 @@ local function safe_fzf_exec(items, opts)
 				end
 				return false
 			end,
-			-- 🔥 New Alt-Esc binding:
-			["alt-esc"] = function(selected, _, fzf_win)
-				if opts.play_action and selected and #selected > 0 then
+			[convert_key(fzf_keymaps.play)] = function(selected)
+				if opts.play_action and #selected > 0 then
 					local data = items_map[selected[1]]
 					vim.schedule(function()
 						opts.play_action(data.value, data.attrs)
-						-- picker will hide automatically with "hide" profile
-						-- now resume it:
+						-- auto-resume the picker
 						if fzf_win and fzf_win.resume then
 							fzf_win:resume()
-						else
+						elseif vim.fn.exists(":FzfLua") == 2 then
 							vim.cmd("FzfLua resume")
 						end
 					end)
 				end
-				return true -- end current picker invocation
+				return false
 			end,
-			-- [convert_key(fzf_keymaps.play)] = function(selected)
-			-- 	if opts.play_action and #selected > 0 then
-			-- 		local data = items_map[selected[1]]
-			-- 		vim.schedule(function()
-			-- 			opts.play_action(data.value, data.attrs)
-			-- 			-- auto-resume the picker
-			-- 			if fzf_win and fzf_win.resume then
-			-- 				fzf_win:resume()
-			-- 			elseif vim.fn.exists(":FzfLua") == 2 then
-			-- 				vim.cmd("FzfLua resume")
-			-- 			end
-			-- 		end)
-			-- 	end
-			-- 	return false
-			-- end,
 			["default"] = function(selected)
 				if opts.default_action and #selected > 0 then
 					local data = items_map[selected[1]]
