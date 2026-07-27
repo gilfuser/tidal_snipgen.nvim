@@ -2,7 +2,16 @@ local loader = require("tidal_snipgen.yaml_loader")
 local fzf_lua = require("fzf-lua")
 local config = require("tidal_snipgen.config")
 local M = {}
-local default_fzf_keymaps = { forward = "ctrl-l", backward = "ctrl-h", play = "ctrl-s" }
+
+local default_fzf_keymaps = {
+	forward = "ctrl-l", -- entra no próximo nível (banco -> sample -> variação)
+	backward = "ctrl-b", -- volta um nível. NOTA: era "ctrl-h", mas em muitos
+	-- terminais Ctrl-H manda o mesmo byte que Backspace, então editar a
+	-- query com Backspace podia disparar "voltar" sem querer (ou parecer
+	-- que a tecla não fazia nada). ctrl-b não tem esse conflito.
+	play = "ctrl-s", -- toca o sample/variação selecionado, sem fechar a UI
+	search_all = "ctrl-a", -- pesquisa achatada: todos os bancos+samples de uma vez
+}
 local user_fzf_keymaps = config.user_config.keymaps and config.user_config.keymaps.fzf
 local fzf_keymaps = vim.tbl_deep_extend("force", {}, default_fzf_keymaps, user_fzf_keymaps or {})
 
@@ -13,35 +22,6 @@ local function convert_key(key)
 		:gsub("<s%-", "shift-")
 		:gsub("<leader>", "\\")
 		:gsub("[<>]", "")
-end
-
-local function calculate_dynamic_height(items_count)
-	local config = require("tidal_snipgen.config").user_config
-	local term_height = vim.o.lines
-	local padding = 4 -- Space for headers/borders
-	-- Calculate ideal height
-	local height = math.min(
-		items_count + padding, -- Content-based height
-		config.fzf_layout.max_height, -- User maximum
-		term_height - padding -- Terminal limits
-	)
-	return math.max(height, config.fzf_layout.min_height)
-end
-
-local function create_persistent_action_handler(fn)
-	return function(selected, _, fzf_win)
-		-- Safe window continuation with error handling
-		pcall(function()
-			if fzf_win and fzf_win.continue then
-				fzf_win:continue()
-			end
-		end)
-		-- Execute handler and explicitly return false
-		if selected and #selected > 0 then
-			fn(selected)
-		end
-		return false
-	end
 end
 
 local UI_CONFIG = {
@@ -93,7 +73,10 @@ local current_context = {
 	pattern_name = nil,
 }
 
-local function create_items(data, formatter)
+-- bank_hint (opcional): "carimba" cada item com o banco de origem. Usado
+-- pelo picker achatado (show_all_samples), onde os itens vêm de vários
+-- bancos ao mesmo tempo e precisamos lembrar de qual banco cada um veio.
+local function create_items(data, formatter, bank_hint)
 	local items = {}
 	for key, attrs in pairs(data) do
 		if type(attrs) == "table" then
@@ -101,6 +84,7 @@ local function create_items(data, formatter)
 				text = formatter(key, attrs),
 				value = key,
 				attrs = attrs,
+				bank = bank_hint,
 			})
 		end
 	end
@@ -110,20 +94,28 @@ local function create_items(data, formatter)
 	return items
 end
 
---[[ local function tidal_send(cmd)
-	vim.schedule(function()
-		vim.cmd("TidalSend1 " .. vim.api.nvim_replace_termcodes(cmd, true, true, true))
-	end)
-end ]]
-
 local current_pattern = nil -- Track currently playing pattern
+
+-- tidal.nvim (skmecs) não expõe comandos Ex como ":TidalSend1" (esse era
+-- do antigo vim-tidal). Em vez disso ele expõe uma API Lua:
+-- require("tidal").api.send(text). Usamos essa API diretamente.
+local function send_to_tidal(text)
+	local ok, tidal = pcall(require, "tidal")
+	if not ok or not tidal.api or not tidal.api.send then
+		vim.notify(
+			"tidal_snipgen: não foi possível achar require('tidal').api.send — tidal.nvim está carregado/instalado?",
+			vim.log.levels.ERROR
+		)
+		return
+	end
+	tidal.api.send(text)
+end
 
 local function silence_sample()
 	if current_pattern then
 		local silence_cmd = string.format('p "%s" silence', current_pattern)
-		-- Use native Neovim scheduling
 		vim.schedule(function()
-			vim.cmd.TidalSend1(silence_cmd)
+			send_to_tidal(silence_cmd)
 		end)
 		current_pattern = nil
 	end
@@ -131,20 +123,16 @@ end
 
 local function play_sample(variation)
 	silence_sample()
-	local bank = current_context.bank or "default_bank"
 	local sample = current_context.sample or "sample"
 	local var = tonumber(variation) or 0
 	local monitor_orbit = tonumber(config.user_config.monitor_orbit) or 6
-	current_pattern = string.format("%s_%s_%d", bank, sample, os.time())
+	current_pattern = string.format("%s_%d", sample, os.time())
 
-	-- Optional: debug print to catch future nils
-	-- print("bank:", bank, "sample:", sample, "var:", var, "monitor_orbit:", monitor_orbit)
-	-- TODO: play sample name todas as variantes. slow <n de variantes> $ # n (run <n de variantes) # s <sample name> # legato 1
 	local cmd = string.format('p "%s" $ s "%s" # n %d # orbit %d', current_pattern, sample, var, monitor_orbit)
 	vim.schedule(function()
-		vim.cmd("noautocmd TidalSend1 " .. vim.api.nvim_replace_termcodes(cmd, true, true, true))
+		send_to_tidal(cmd)
 	end)
-	-- Optionally, your auto-silence logic
+
 	local pattern_name = current_pattern
 	vim.defer_fn(function()
 		if current_pattern == pattern_name then
@@ -154,17 +142,25 @@ local function play_sample(variation)
 	end, 16000)
 end
 
+--- Executa um picker fzf-lua.
+--- opts:
+---   prompt            (string)
+---   nav_forward(value, attrs, bank)   -- entra no próximo nível
+---   nav_backward()                    -- volta um nível (omitir se não houver nível acima)
+---   play_action(value, attrs, bank)   -- toca o sample/variação SEM fechar a UI
+---   default_action(value, attrs, bank) -- <CR>: insere no buffer
+---   enable_search_all (bool, default true) -- disponibiliza o atalho de busca achatada
 local function safe_fzf_exec(items, opts)
 	local items_map = {}
 	local items_str = {}
 
-	-- Build items list
 	for _, item in ipairs(items) do
 		if item.text and item.value then
 			table.insert(items_str, item.text)
 			items_map[item.text] = {
 				value = item.value,
 				attrs = item.attrs,
+				bank = item.bank,
 			}
 		end
 	end
@@ -173,7 +169,6 @@ local function safe_fzf_exec(items, opts)
 		return
 	end
 
-	-- Get layout config with proper fallbacks
 	local layout = {
 		width = config.user_config.fzf_layout.width or 0.3,
 		height = config.user_config.fzf_layout.height or 0.9,
@@ -182,13 +177,60 @@ local function safe_fzf_exec(items, opts)
 		col = config.user_config.fzf_layout.col or 1,
 	}
 
-	-- Calculate absolute positions (right-aligned)
 	local win_width = math.floor(vim.o.columns * layout.width)
 	local win_height = math.floor(vim.o.lines * layout.height)
 	local win_row = math.floor(vim.o.lines * layout.row)
 	local win_col = math.floor(vim.o.columns - win_width - 1)
 
-	-- Configure FZF options
+	local actions = {
+		[convert_key(fzf_keymaps.forward)] = function(selected)
+			if opts.nav_forward and #selected > 0 then
+				local data = items_map[selected[1]]
+				opts.nav_forward(data.value, data.attrs, data.bank)
+			end
+			return false
+		end,
+		["default"] = function(selected)
+			if opts.default_action and #selected > 0 then
+				local data = items_map[selected[1]]
+				opts.default_action(data.value, data.attrs, data.bank)
+			end
+			return true
+		end,
+	}
+
+	if opts.nav_backward then
+		actions[convert_key(fzf_keymaps.backward)] = function()
+			opts.nav_backward()
+			return false
+		end
+	end
+
+	if opts.play_action then
+		-- exec_silent: roda a função sem fechar (nem precisar "resumir") a
+		-- janela do fzf-lua. É o jeito nativo, moderno, de manter a UI
+		-- aberta enquanto você escuta várias variações em sequência —
+		-- substitui qualquer hack manual de fechar/reabrir ou de
+		-- continue()/resume() (que dependia de uma variável "fzf_win" que
+		-- nunca chegava a ser definida em lugar nenhum).
+		actions[convert_key(fzf_keymaps.play)] = {
+			fn = function(selected)
+				if selected and #selected > 0 then
+					local data = items_map[selected[1]]
+					opts.play_action(data.value, data.attrs, data.bank)
+				end
+			end,
+			exec_silent = true,
+		}
+	end
+
+	if opts.enable_search_all ~= false then
+		actions[convert_key(fzf_keymaps.search_all)] = function()
+			vim.schedule(M.show_all_samples)
+			return false
+		end
+	end
+
 	local fzf_opts = {
 		prompt = opts.prompt,
 		winopts = {
@@ -198,47 +240,10 @@ local function safe_fzf_exec(items, opts)
 			col = win_col,
 			border = layout.border,
 			title = opts.prompt:gsub(">.*", ""),
-			persistent = true,
 			focusable = true,
 			relative = "editor",
 		},
-		actions = {
-			[convert_key(fzf_keymaps.forward)] = function(selected)
-				if opts.nav_forward and #selected > 0 then
-					local data = items_map[selected[1]]
-					opts.nav_forward(data.value, data.attrs)
-				end
-				return false
-			end,
-			[convert_key(fzf_keymaps.backward)] = function()
-				if opts.nav_backward then
-					opts.nav_backward()
-				end
-				return false
-			end,
-			[convert_key(fzf_keymaps.play)] = function(selected)
-				if opts.play_action and #selected > 0 then
-					local data = items_map[selected[1]]
-					vim.schedule(function()
-						opts.play_action(data.value, data.attrs)
-						-- auto-resume the picker
-						if fzf_win and fzf_win.resume then
-							fzf_win:resume()
-						elseif vim.fn.exists(":FzfLua") == 2 then
-							vim.cmd("FzfLua resume")
-						end
-					end)
-				end
-				return false
-			end,
-			["default"] = function(selected)
-				if opts.default_action and #selected > 0 then
-					local data = items_map[selected[1]]
-					opts.default_action(data.value, data.attrs)
-				end
-				return true
-			end,
-		},
+		actions = actions,
 		fzf_opts = {
 			["--no-exit-0"] = "",
 		},
@@ -282,7 +287,6 @@ function M.show_samples()
 	local items = {}
 	for sample_name, sample_attrs in pairs(bank_data) do
 		if type(sample_attrs) == "table" and sample_name ~= "drummachine" then
-			-- Add drummachine status to sample attributes
 			local attrs = vim.tbl_extend("keep", sample_attrs, {
 				drummachine = is_drummachine,
 			})
@@ -304,20 +308,15 @@ function M.show_samples()
 			else
 				play_sample(0)
 			end
-			return false
 		end,
 		nav_backward = M.show_sound_banks,
 		play_action = function(value)
 			current_context.sample = value
 			play_sample(0)
-			return false -- Explicit return
 		end,
 		default_action = function(value)
-			local insert = current_context.sample
-			if value > 0 then
-				insert = insert .. ":" .. value
-			end
-			vim.api.nvim_put({ insert .. " " }, "c", true, true)
+			current_context.sample = value
+			vim.api.nvim_put({ value .. " " }, "c", true, true)
 		end,
 	})
 end
@@ -342,7 +341,6 @@ function M.show_variations()
 		nav_backward = M.show_samples,
 		play_action = function(value)
 			play_sample(value)
-			return false
 		end,
 		default_action = function(value)
 			local insert = current_context.sample
@@ -350,7 +348,64 @@ function M.show_variations()
 				insert = insert .. ":" .. value
 			end
 			vim.api.nvim_put({ insert .. " " }, "c", true, true)
-			return false
+		end,
+	})
+end
+
+--- Picker "achatado": lista banco+sample de TODOS os bancos numa lista só,
+--- pra dar pra pesquisar direto sem precisar entrar em cada banco primeiro.
+--- Disponível a partir de qualquer nível via o atalho "search_all"
+--- (ctrl-a por padrão), ou diretamente com :TidalSnipgenSearchAll.
+function M.show_all_samples()
+	current_context.data = loader.load_dirt_samples()
+	if not current_context.data or not current_context.data.samps then
+		return
+	end
+
+	local items = {}
+	for bank_name, bank_data in pairs(current_context.data.samps) do
+		local is_drummachine = bank_data.drummachine or false
+		for sample_name, sample_attrs in pairs(bank_data) do
+			if type(sample_attrs) == "table" and sample_name ~= "drummachine" then
+				local attrs = vim.tbl_extend("keep", sample_attrs, {
+					drummachine = is_drummachine,
+				})
+				table.insert(items, {
+					text = string.format("%-18s %s", bank_name, UI_CONFIG.samples.formatter(sample_name, attrs)),
+					value = sample_name,
+					attrs = attrs,
+					bank = bank_name,
+				})
+			end
+		end
+	end
+
+	table.sort(items, function(a, b)
+		return a.text < b.text
+	end)
+
+	safe_fzf_exec(items, {
+		prompt = "All Samples> ",
+		enable_search_all = false, -- já estamos na busca achatada
+		nav_forward = function(value, attrs, bank)
+			current_context.bank = bank
+			current_context.sample = value
+			if (attrs.variations or 0) > 1 then
+				M.show_variations()
+			else
+				play_sample(0)
+			end
+		end,
+		nav_backward = M.show_sound_banks,
+		play_action = function(value, attrs, bank)
+			current_context.bank = bank
+			current_context.sample = value
+			play_sample(0)
+		end,
+		default_action = function(value, attrs, bank)
+			current_context.bank = bank
+			current_context.sample = value
+			vim.api.nvim_put({ value .. " " }, "c", true, true)
 		end,
 	})
 end

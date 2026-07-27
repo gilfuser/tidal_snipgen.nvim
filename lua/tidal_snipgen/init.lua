@@ -43,12 +43,25 @@ function M.setup(user_config)
 		ui.show_sound_banks()
 	end, {})
 
+	vim.api.nvim_create_user_command("TidalSnipgenSearchAll", function()
+		ui.show_all_samples()
+	end, {})
+
 	-- Set keymaps
 	if config.user_config.keymaps.show_banks then
 		vim.keymap.set(
 			"n",
 			config.user_config.keymaps.show_banks,
 			"<cmd>TidalSnipgenShowBanks<CR>",
+			{ silent = true, noremap = true }
+		)
+	end
+
+	if config.user_config.keymaps.show_all_samples then
+		vim.keymap.set(
+			"n",
+			config.user_config.keymaps.show_all_samples,
+			"<cmd>TidalSnipgenSearchAll<CR>",
 			{ silent = true, noremap = true }
 		)
 	end

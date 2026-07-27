@@ -5,6 +5,15 @@ M.default_config = {
 	output_path = nil, -- Will be set in setup function
 	keymaps = {
 		show_banks = "<leader>sb",
+		show_all_samples = "<leader>sa", -- pesquisa achatada (todos os bancos+samples)
+		-- Atalhos usados DENTRO do picker fzf-lua (podem ser sobrescritos
+		-- individualmente; não precisam de todas as chaves).
+		fzf = {
+			forward = "ctrl-l", -- entra no próximo nível (banco -> sample -> variação)
+			backward = "ctrl-b", -- volta um nível
+			play = "ctrl-s", -- toca o item selecionado, sem fechar a UI
+			search_all = "ctrl-a", -- pula pra busca achatada, de qualquer nível
+		},
 	},
 	auto_generate = true,
 	fzf_layout = {
