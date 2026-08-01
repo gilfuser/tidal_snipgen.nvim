@@ -3,21 +3,22 @@ local M = {}
 M.default_config = {
 	samples_path = nil, -- Will be set in setup function
 	output_path = nil, -- Will be set in setup function
+	monitor_orbit = 6, -- orbit usado pra pré-escutar samples (ctrl-s na UI);
+	-- pode ser mudado a qualquer momento com :TidalSnipgenSetMonitorOrbit
 	keymaps = {
 		show_banks = "<leader>sb",
 		show_all_samples = "<leader>sa", -- pesquisa achatada (todos os bancos+samples)
 		-- Atalhos usados DENTRO do picker fzf-lua (podem ser sobrescritos
 		-- individualmente; não precisam de todas as chaves).
 		fzf = {
-			forward = "ctrl-l", -- entra no próximo nível (banco -> sample -> variação)
-			backward = "ctrl-b", -- volta um nível
+			forward = "ctrl-l", -- entra no próximo nível (sample -> variação)
+			backward = "alt-h", -- volta um nível (ctrl-h/ctrl-b têm conflitos, ver ui.lua)
 			play = "ctrl-s", -- toca o item selecionado, sem fechar a UI
-			search_all = "ctrl-a", -- pula pra busca achatada, de qualquer nível
 		},
 	},
 	auto_generate = true,
 	fzf_layout = {
-		width = 0.2,
+		width = 0.35,
 		height = 0.9,
 		border = "rounded",
 	},

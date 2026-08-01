@@ -46,6 +46,49 @@ function M.setup(user_config)
 	vim.api.nvim_create_user_command("TidalSnipgenSearchAll", function()
 		ui.show_all_samples()
 	end, {})
+	-- Independente de TidalSnipgenShowBanks: essa é a busca achatada
+	-- (banco+sample numa lista só), pra quando você sabe mais ou menos o
+	-- nome do sample e não quer entrar banco por banco procurando.
+
+	-- monitor_orbit precisa poder mudar em qualquer momento (não só no
+	-- setup), então em vez de só um valor de config estático, expomos um
+	-- comando. play_sample() em ui.lua já lê config.user_config.monitor_orbit
+	-- toda vez que toca um sample, então mudar isso aqui já vale imediatamente
+	-- pro próximo ctrl-s, sem precisar reiniciar/recarregar nada.
+	vim.api.nvim_create_user_command("TidalSnipgenSetMonitorOrbit", function(cmd_opts)
+		if cmd_opts.args == "" then
+			vim.notify("tidal_snipgen: monitor_orbit atual = " .. tostring(config.user_config.monitor_orbit or 6))
+			return
+		end
+		local orbit = tonumber(cmd_opts.args)
+		if not orbit then
+			vim.notify("tidal_snipgen: uso: :TidalSnipgenSetMonitorOrbit <número>", vim.log.levels.ERROR)
+			return
+		end
+		config.user_config.monitor_orbit = orbit
+		vim.notify("tidal_snipgen: monitor_orbit = " .. orbit)
+	end, {
+		nargs = "?",
+		desc = "Consulta (sem argumento) ou define o orbit usado pra pré-escutar samples",
+	})
+
+	vim.api.nvim_create_user_command("TidalSnipgenRefreshCps", function()
+		local cps = require("tidal_snipgen.cps")
+		cps.refresh_cps(function(value)
+			if value then
+				vim.notify(string.format("tidal_snipgen: cps = %.4f", value))
+			else
+				vim.notify(
+					"tidal_snipgen: não consegui ler o cps (tidal.nvim rodando? getcps respondeu?)",
+					vim.log.levels.WARN
+				)
+			end
+		end)
+	end, { desc = "Força uma consulta do cps atual ao Tidal, pra atualizar as frações de ciclo na UI" })
+
+	vim.api.nvim_create_user_command("TidalSnipgenDebugCps", function()
+		require("tidal_snipgen.cps").debug_refresh_cps()
+	end, { desc = "Mostra passo a passo a tentativa de consultar o cps, pra debugar quando não funciona" })
 
 	-- Set keymaps
 	if config.user_config.keymaps.show_banks then
